@@ -178,9 +178,9 @@ export function valorPendiente(job: Job): number {
 }
 
 // ===== Valores en USD =====
-// REGLA OFICIAL: el valor económico SIEMPRE proviene de la columna BC
-// (mapeada en el importador como `valorTotalUsd`). No se calcula desde
-// cantidad × precio ni desde conversiones de moneda.
+// FUENTE ÚNICA: columna BC del Excel → mapeada como `valorTotalUsd`.
+// No se estima desde otras columnas. Si BC está vacía para una línea,
+// esa línea aporta 0. Así el total siempre refleja exactamente la suma de BC.
 export function valorCompradoUsd(job: Job): number {
   const v = Number(job.valorTotalUsd ?? 0);
   return isFinite(v) && v > 0 ? v : 0;
@@ -188,13 +188,40 @@ export function valorCompradoUsd(job: Job): number {
 export function valorRecibidoUsd(job: Job): number {
   const total = valorCompradoUsd(job);
   if (total <= 0) return 0;
+
+  // PASO 1: estados que garantizan 0 recibido — antes de cualquier otro cálculo.
+  // Borrado / Sin entrega nunca tienen valor recibido, sin importar otros campos.
+  const s = String(job.estadoEntrega ?? "").toLowerCase().trim();
+  const esBorrado    = s === "borrado" || s === "eliminado" || s.startsWith("borr") ||
+                       s === "baja"    || s === "anulado"   || s === "cancelado";
+  const esSinEntrega = s === "sin entrega" || s === "sin entregar" ||
+                       s === "pendiente"   || s === "no entregado";
+  if (esBorrado || esSinEntrega) return 0;
+
+  // PASO 2: columna "valor x entregar usd" del Excel → recibido = total − pendiente.
+  // Solo cuando pendiente > 0 (0 podría ser celda vacía no informada).
+  if (job.valorPendienteUsd !== null && job.valorPendienteUsd !== undefined) {
+    const pending = Number(job.valorPendienteUsd);
+    if (isFinite(pending) && pending > 0) return Math.max(0, total - pending);
+  }
+
+  // PASO 3: ratio de cantidades entregadas.
   const q = Number(job.qty ?? 0);
   const e = Number(job.qtyEntregada ?? 0);
   if (q > 0 && e >= q) return total;
   if (q > 0 && e > 0) return (total / q) * e;
+
+  // PASO 4: estado dice entregado pero sin datos de cantidad.
+  if (s === "entregado" || s === "delivered" || s === "completo" || s === "completado") return total;
+
   return 0;
 }
 export function valorPendienteUsdFn(job: Job): number {
+  // Prioridad 1: columna directa del Excel "valor x entregar usd"
+  if (job.valorPendienteUsd !== null && job.valorPendienteUsd !== undefined) {
+    const v = Number(job.valorPendienteUsd);
+    if (isFinite(v) && v > 0) return v;
+  }
   return Math.max(0, valorCompradoUsd(job) - valorRecibidoUsd(job));
 }
 
