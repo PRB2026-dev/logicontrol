@@ -882,17 +882,22 @@ function DashboardGerencial() {
             </div>
             {/* Gráfico top 8 por líneas */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Top proveedores · Líneas (entregadas / pendientes)</h3>
-              <div className="h-52">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Top 5 proveedores · Líneas (entregadas / pendientes)</h3>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={proveedoresData.chartData} layout="vertical" margin={{ top: 2, right: 50, left: 4, bottom: 2 }}>
-                    <XAxis type="number" tick={{ fontSize: 10 }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
+                  <BarChart data={proveedoresData.chartData.slice(0, 5).map(d => ({ ...d, name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name }))} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle}
                       formatter={(v: number, name: string) => [v.toLocaleString(), name]} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="entregadas" name="Entregadas" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={14} />
-                    <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={14} />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                    <Bar dataKey="entregadas" name="Entregadas" stackId="a" fill="#10b981" barSize={20}>
+                      <LabelList dataKey="entregadas" position="center" fill="#fff" fontSize={9} fontWeight={600} />
+                    </Bar>
+                    <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
+                      <LabelList dataKey="pendientes" position="right" fill="var(--foreground)" fontSize={10} fontWeight={500} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
