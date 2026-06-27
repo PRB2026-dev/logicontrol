@@ -882,18 +882,17 @@ function DashboardGerencial() {
             </div>
             {/* Gráfico top 8 por líneas */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Top proveedores · Líneas (total / pendientes)</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Top proveedores · Líneas (entregadas / pendientes)</h3>
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={proveedoresData.chartData} layout="vertical" margin={{ top: 2, right: 50, left: 4, bottom: 2 }}>
                     <XAxis type="number" tick={{ fontSize: 10 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
                     <Tooltip contentStyle={tooltipStyle}
-                      formatter={(v: number, name: string) => [v.toLocaleString(), name === "lineas" ? "Total líneas" : name === "pendientes" ? "Pendientes" : "Entregadas"]} />
+                      formatter={(v: number, name: string) => [v.toLocaleString(), name === "entregadas" ? "Entregadas" : "Pendientes"]} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="lineas"     name="Total"      fill="#6366f1" radius={[0, 4, 4, 0]} barSize={8} />
-                    <Bar dataKey="pendientes" name="Pendientes" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
-                    <Bar dataKey="entregadas" name="Entregadas" fill="#10b981" radius={[0, 4, 4, 0]} barSize={8} />
+                    <Bar dataKey="entregadas" name="Entregadas" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={14} />
+                    <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={14} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
