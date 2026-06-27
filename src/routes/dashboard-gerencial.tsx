@@ -1771,9 +1771,9 @@ function CatSeguimientoChart({ data, fmtMoney, tooltipStyle }: CatChartProps) {
 
   const barH = Math.max(260, rows.length * 46 + 40);
 
-  const TT = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartRow }> }) => {
+  const TT = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
     if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
+    const d = payload[0].payload as ChartRow;
     return (
       <div style={{ ...tooltipStyle as React.CSSProperties, padding: "8px 12px", minWidth: 190 }}>
         <div className="font-semibold text-xs mb-1 text-foreground">{d.name}</div>

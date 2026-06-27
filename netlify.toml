@@ -1,0 +1,6 @@
+[build]
+  command = "npm run build"
+  # The nitro `netlify` preset emits the static site to `dist/` (not `dist/client`)
+  # and the SSR server handler to `.netlify/functions-internal/server`, which Netlify
+  # auto-detects. Repo config takes precedence over the dashboard build settings.
+  publish = "dist"
