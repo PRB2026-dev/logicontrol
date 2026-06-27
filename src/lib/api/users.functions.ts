@@ -124,11 +124,28 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
     if (data.user_id === userId) {
       throw new Error("No puedes eliminar tu propia cuenta");
     }
-    // Eliminar de tablas primero (ON DELETE CASCADE lo hace automáticamente,
-    // pero lo hacemos explícito por si la restricción no está activa)
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     await supabaseAdmin.from("profiles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+// ─── Cambiar contraseña ───────────────────────────────────────────────────────
+export const changePasswordAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      user_id: z.string().uuid(),
+      new_password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const { userId } = context as unknown as AuthContext;
+    await assertAdmin(userId);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      password: data.new_password,
+    });
     if (error) throw new Error(error.message);
     return { success: true };
   });

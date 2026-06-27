@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import {
   listUsersAdmin, createUserAdmin, updateRoleAdmin, deleteUserAdmin,
+  changePasswordAdmin,
   type UserRow,
 } from "@/lib/api/users.functions";
 
@@ -94,6 +95,10 @@ function ConfigPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
+  const [pwUser, setPwUser] = useState<UserRow | null>(null);
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (!rl && isAdmin) setActiveTab("usuarios"); }, [rl, isAdmin]);
@@ -144,6 +149,19 @@ function ConfigPage() {
       setUsers((prev) => prev.filter((x) => x.user_id !== u.user_id));
     } catch (e) { toast.error(e instanceof Error ? e.message : "Error al eliminar usuario"); }
     finally { setDeletingId(null); }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwUser) return;
+    if (newPw !== confirmPw) { toast.error("Las contraseñas no coinciden"); return; }
+    setSavingPw(true);
+    try {
+      await changePasswordAdmin({ data: { user_id: pwUser.user_id, new_password: newPw } });
+      toast.success(`Contraseña actualizada para "${pwUser.display_name || pwUser.email}"`);
+      setPwUser(null); setNewPw(""); setConfirmPw("");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Error al cambiar contraseña"); }
+    finally { setSavingPw(false); }
   };
 
   const pwMismatch = !!form.confirm_password && form.password !== form.confirm_password;
@@ -252,10 +270,16 @@ function ConfigPage() {
                         </select>
                       </td>
                       <td className="py-2.5 px-4 text-right">
-                        <button onClick={() => void handleDelete(u)} disabled={!!deletingId}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors disabled:opacity-50">
-                          {deletingId === u.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Eliminar
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => { setPwUser(u); setNewPw(""); setConfirmPw(""); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-info hover:bg-info/10 border border-transparent hover:border-info/20 transition-colors">
+                            🔑 Contraseña
+                          </button>
+                          <button onClick={() => void handleDelete(u)} disabled={!!deletingId}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-colors disabled:opacity-50">
+                            {deletingId === u.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -444,6 +468,48 @@ function ConfigPage() {
               Última actualización de términos: Junio 2026 · Estos términos pueden ser actualizados periódicamente.
               El uso continuado del sistema después de una actualización constituye aceptación de los nuevos términos.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cambiar contraseña */}
+      {pwUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setPwUser(null); }}>
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div>
+                <h2 className="font-semibold text-foreground">Cambiar contraseña</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{pwUser.display_name || pwUser.email}</p>
+              </div>
+              <button onClick={() => setPwUser(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/50 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={(e) => void handleChangePassword(e)} className="px-6 py-5 space-y-4">
+              <Field label="Nueva contraseña" required hint="mínimo 8 caracteres">
+                <input type="password" required minLength={8} value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)} placeholder="••••••••"
+                  className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </Field>
+              <Field label="Confirmar contraseña" required>
+                <input type="password" required minLength={8} value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)} placeholder="••••••••"
+                  className={`w-full h-9 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 ${confirmPw && newPw !== confirmPw ? "border-destructive focus:ring-destructive/30" : "border-border focus:ring-primary/30"}`} />
+                {confirmPw && newPw !== confirmPw && <p className="text-xs text-destructive mt-1">Las contraseñas no coinciden</p>}
+              </Field>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={savingPw || (!!confirmPw && newPw !== confirmPw)}
+                  className="flex-1 h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                  {savingPw ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</> : "Cambiar contraseña"}
+                </button>
+                <button type="button" onClick={() => setPwUser(null)}
+                  className="px-4 h-9 rounded-md border border-border text-sm hover:bg-muted/50 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
