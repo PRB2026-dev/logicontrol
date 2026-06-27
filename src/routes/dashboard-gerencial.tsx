@@ -889,7 +889,7 @@ function DashboardGerencial() {
                     <XAxis type="number" tick={{ fontSize: 10 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
                     <Tooltip contentStyle={tooltipStyle}
-                      formatter={(v: number, name: string) => [v.toLocaleString(), name === "entregadas" ? "Entregadas" : "Pendientes"]} />
+                      formatter={(v: number, name: string) => [v.toLocaleString(), name]} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
                     <Bar dataKey="entregadas" name="Entregadas" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={14} />
                     <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={14} />
