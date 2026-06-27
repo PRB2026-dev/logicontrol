@@ -4,8 +4,8 @@ import { AppShell } from "@/components/app-shell";
 import { useJobsStore } from "@/lib/jobs-store";
 import { fmtMoney, jobDelayDays, jobLlave, valorCompradoUsd, valorRecibidoUsd, valorPendienteUsdFn } from "@/lib/operational";
 import type { Job } from "@/lib/jobs-data";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, LabelList, LineChart, Line, Legend } from "recharts";
-import { Package, CheckCircle2, Clock, XCircle, Wallet, PackageCheck, PackageMinus, Layers, Boxes, TrendingUp, TrendingDown, Timer, AlertTriangle, ChevronDown } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, LabelList, LineChart, Line, Legend, ComposedChart } from "recharts";
+import { Package, CheckCircle2, Clock, XCircle, Wallet, PackageCheck, PackageMinus, Layers, Boxes, TrendingUp, TrendingDown, Timer, AlertTriangle, ChevronDown, ShieldCheck, ShieldAlert, Building2, Trash2, Users } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard-gerencial")({
   component: () => (
@@ -171,9 +171,11 @@ function DashboardGerencial() {
   const [fGerencia, setFGerencia] = useState("");
   const [fCampo, setFCampo] = useState("");
   const [fCuenta, setFCuenta] = useState("");
-  const [fCategoriaSeguimiento, setFCategoriaSeguimiento] = useState("");
+  const [fGestionOperativa, setFGestionOperativa] = useState<"" | "FRONTERA" | "BDP">("");
   const [fEstados, setFEstados] = useState<string[]>([]);
   const [fSemaforoKey, setFSemaforoKey] = useState<SemaforoKey | "">("");
+  const [fProveedor, setFProveedor] = useState("");
+  const [fCategoria, setFCategoria] = useState("");
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -183,7 +185,8 @@ function DashboardGerencial() {
   const gerenciasOpt = useMemo(() => opt(rawJobs.map((j) => j.gerencia)), [rawJobs]);
   const camposOpt = useMemo(() => opt(rawJobs.map((j) => j.campo)), [rawJobs]);
   const cuentasOpt = useMemo(() => opt(rawJobs.map((j) => j.cuenta)), [rawJobs]);
-  const categoriasSeguimientoOpt = useMemo(() => opt(rawJobs.map((j) => j.categoriaSeguimiento)), [rawJobs]);
+  const proveedoresOpt = useMemo(() => opt(rawJobs.map((j) => j.proveedor)), [rawJobs]);
+  const categoriasOpt = useMemo(() => opt(rawJobs.map((j) => j.categoriaSeguimiento)), [rawJobs]);
 
   const semestresOpt = useMemo(() => {
     const s = Array.from(new Set(rawJobs.map((j) => {
@@ -237,14 +240,19 @@ function DashboardGerencial() {
     if (fGerencia && (j.gerencia ?? "").trim() !== fGerencia) return false;
     if (fCampo && (j.campo ?? "").trim() !== fCampo) return false;
     if (fCuenta && (j.cuenta ?? "").trim() !== fCuenta) return false;
-    if (fCategoriaSeguimiento && (j.categoriaSeguimiento ?? "").trim() !== fCategoriaSeguimiento) return false;
+    if (fProveedor && (j.proveedor ?? "").trim() !== fProveedor) return false;
+    if (fCategoria && (j.categoriaSeguimiento ?? "").trim() !== fCategoria) return false;
+    if (fGestionOperativa) {
+      const by = norm(j.categoriaSeguimiento);
+      if (fGestionOperativa === "FRONTERA" && by !== "revision administrativa") return false;
+      if (fGestionOperativa === "BDP" && by !== "revision proveedor") return false;
+    }
     if (fEstados.length) {
-      // estadoOf(j) es la única fuente — igual que estadoCounts
       if (!fEstados.includes(estadoOf(j))) return false;
     }
     if (fSemaforoKey && getSemaforoKey(j.diasIncumplimiento ?? 0) !== fSemaforoKey) return false;
     return true;
-  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fCategoriaSeguimiento, fEstados, fSemaforoKey]);
+  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fProveedor, fCategoria, fGestionOperativa, fEstados, fSemaforoKey]);
 
   const lineas = useMemo(() => filtered, [filtered]);
 
@@ -369,6 +377,233 @@ function DashboardGerencial() {
       }));
   }, [lineas]);
 
+  // ─── Tendencia mensual de líneas y % cumplimiento ────────────────────────────
+  const tendLineasData = useMemo(() => {
+    const map = new Map<number, { total: number; entregadas: number; pendientes: number }>();
+    for (const j of lineas) {
+      const m = deriveMes(j);
+      if (!m) continue;
+      if (!map.has(m)) map.set(m, { total: 0, entregadas: 0, pendientes: 0 });
+      const v = map.get(m)!;
+      v.total++;
+      if (isEntregado(j)) v.entregadas++;
+      else v.pendientes++;
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([m, v]) => ({
+        mes: MESES[m - 1] ?? String(m),
+        total: v.total,
+        entregadas: v.entregadas,
+        pendientes: v.pendientes,
+        pctCumpl: v.total ? Math.round((v.entregadas / v.total) * 100) : 0,
+      }));
+  }, [lineas]);
+
+  // ─── Tendencia combinada: USD + Líneas por mes ───────────────────────────────
+  const tendCombinada = useMemo(() => {
+    // Merge por mes usando tendData (USD) como base
+    const lineasMap = new Map(tendLineasData.map((d) => [d.mes, d]));
+    // Unir todos los meses presentes en cualquiera de los dos arrays
+    const allMeses = Array.from(new Set([
+      ...tendData.map((d) => d.mes),
+      ...tendLineasData.map((d) => d.mes),
+    ]));
+    // Mantener orden cronológico usando el índice en MESES
+    allMeses.sort((a, b) => MESES.indexOf(a) - MESES.indexOf(b));
+    return allMeses.map((mes) => {
+      const usd   = tendData.find((d) => d.mes === mes);
+      const lneas = lineasMap.get(mes);
+      return {
+        mes,
+        comprado:   usd?.comprado   ?? 0,
+        recibido:   usd?.recibido   ?? 0,
+        pendiente:  usd?.pendiente  ?? 0,
+        total:      lneas?.total      ?? 0,
+        entregadas: lneas?.entregadas ?? 0,
+        pendientes: lneas?.pendientes ?? 0,
+      };
+    });
+  }, [tendData, tendLineasData]);
+  const proveedoresData = useMemo(() => {
+    type ProvAcc = {
+      lineas: number;
+      entregadas: number;
+      pendientes: number;
+      atiempo: number;
+      tarde: number;
+      conFechaCompromiso: number; // "llamados de atención"
+      usd: number;
+    };
+    const map = new Map<string, ProvAcc>();
+    for (const j of lineas) {
+      const prov = (j.proveedor ?? "Sin proveedor").trim() || "Sin proveedor";
+      if (!map.has(prov)) map.set(prov, { lineas: 0, entregadas: 0, pendientes: 0, atiempo: 0, tarde: 0, conFechaCompromiso: 0, usd: 0 });
+      const v = map.get(prov)!;
+      v.lineas++;
+      v.usd += valorCompradoUsd(j);
+      if (j.fechaCompromiso) v.conFechaCompromiso++;
+      if (isEntregado(j)) {
+        v.entregadas++;
+        if ((j.diasIncumplimiento ?? 0) <= 0) v.atiempo++;
+        else v.tarde++;
+      } else {
+        v.pendientes++;
+      }
+    }
+
+    const arr = Array.from(map.entries()).map(([nombre, d]) => ({ nombre, ...d }));
+    const totalProveedores = arr.length;
+    const proveedoresActivos = arr.filter((p) => p.pendientes > 0).length;
+
+    const topLineas      = arr.sort((a, b) => b.lineas - a.lineas)[0]?.nombre ?? "—";
+    const topLlamados    = [...arr].sort((a, b) => b.conFechaCompromiso - a.conFechaCompromiso)[0]?.nombre ?? "—";
+    const topPendientes  = [...arr].sort((a, b) => b.pendientes - a.pendientes)[0]?.nombre ?? "—";
+    const topEntregadas  = [...arr].sort((a, b) => b.entregadas - a.entregadas)[0]?.nombre ?? "—";
+
+    const totalEntregadasAtiempo = lineas.filter((j) => isEntregado(j) && (j.diasIncumplimiento ?? 0) <= 0).length;
+    const totalEntregadasTarde   = lineas.filter((j) => isEntregado(j) && (j.diasIncumplimiento ?? 0) > 0).length;
+
+    // Top 8 por líneas para gráfico
+    const chartData = [...arr]
+      .sort((a, b) => b.lineas - a.lineas)
+      .slice(0, 8)
+      .map((p) => ({ name: p.nombre, lineas: p.lineas, pendientes: p.pendientes, entregadas: p.entregadas }));
+
+    return {
+      totalProveedores,
+      proveedoresActivos,
+      topLineas,
+      topLlamados,
+      topPendientes,
+      topEntregadas,
+      totalEntregadasAtiempo,
+      totalEntregadasTarde,
+      chartData,
+    };
+  }, [lineas]);
+
+  // ─── Pendientes por Categoría de Seguimiento — jerarquía 3 niveles reales ───
+  // Nivel 1: categoriaSeguimiento (FRONTERA / BDP)
+  // Nivel 2: detalleStatus        (ej. "En Seguimiento", "Por Cancelar")
+  // Nivel 3: statusGeneral        (ej. "En Validación Admon", "En Fabricación")
+  type CatDesglose = {
+    label: string;
+    lineas: number;
+    usd: number;
+    detalles: Array<{
+      detalleStatus: string;
+      lineas: number;
+      usd: number;
+      areas: Array<{
+        area: string;       // statusGeneral
+        lineas: number;
+        usd: number;
+        statusGenerales: Array<{ sg: string; lineas: number; usd: number }>; // kept for type compat, same as area
+      }>;
+    }>;
+  };
+
+  const pendientesPorCategoria = useMemo((): CatDesglose[] => {
+    const isFrontera = (cat: string) => {
+      const c = cat.toLowerCase().trim();
+      return c.includes("administrativa") || c === "frontera";
+    };
+    const isBdp = (cat: string) => {
+      const c = cat.toLowerCase().trim();
+      return c.includes("proveedor") || c === "bdp";
+    };
+
+    // Nivel 3 = statusGeneral (área/actividad operativa real)
+    type Node3 = Map<string, { lineas: number; usd: number }>;
+    type Node2 = Map<string, { lineas: number; usd: number; sg: Node3 }>;
+    type Node1 = { lineas: number; usd: number; detalles: Node2 };
+
+    const frontera: Node1 = { lineas: 0, usd: 0, detalles: new Map() };
+    const bdp:      Node1 = { lineas: 0, usd: 0, detalles: new Map() };
+    const otros:    Node1 = { lineas: 0, usd: 0, detalles: new Map() };
+
+    for (const j of lineas) {
+      if (!isPending(j)) continue;
+      const cat = (j.categoriaSeguimiento ?? "").trim();
+      const det = (j.detalleStatus  ?? "Sin detalle").trim()  || "Sin detalle";
+      const sg  = (j.statusGeneral  ?? "Sin estado").trim()   || "Sin estado";
+      const usd = valorPendienteUsdFn(j);
+
+      const node: Node1 = isFrontera(cat) ? frontera : isBdp(cat) ? bdp : otros;
+      node.lineas++;
+      node.usd += usd;
+
+      if (!node.detalles.has(det)) node.detalles.set(det, { lineas: 0, usd: 0, sg: new Map() });
+      const dNode = node.detalles.get(det)!;
+      dNode.lineas++;
+      dNode.usd += usd;
+
+      if (!dNode.sg.has(sg)) dNode.sg.set(sg, { lineas: 0, usd: 0 });
+      const sNode = dNode.sg.get(sg)!;
+      sNode.lineas++;
+      sNode.usd += usd;
+    }
+
+    const toDesglose = (label: string, node: Node1): CatDesglose => ({
+      label,
+      lineas: node.lineas,
+      usd: node.usd,
+      detalles: Array.from(node.detalles.entries())
+        .sort((a, b) => b[1].lineas - a[1].lineas)
+        .map(([det, dNode]) => ({
+          detalleStatus: det,
+          lineas: dNode.lineas,
+          usd: dNode.usd,
+          areas: Array.from(dNode.sg.entries())
+            .sort((a, b) => b[1].lineas - a[1].lineas)
+            .map(([sg, v]) => ({
+              area: sg,
+              lineas: v.lineas,
+              usd: v.usd,
+              statusGenerales: [{ sg, lineas: v.lineas, usd: v.usd }],
+            })),
+        })),
+    });
+
+    const result: CatDesglose[] = [];
+    if (frontera.lineas > 0) result.push(toDesglose("FRONTERA ENERGY · Revisión Administrativa", frontera));
+    if (bdp.lineas > 0)      result.push(toDesglose("BDP · Revisión Proveedor", bdp));
+    if (otros.lineas > 0)    result.push(toDesglose("Sin clasificar",                            otros));
+    return result;
+  }, [lineas]);
+
+  // ─── Líneas Borradas ─────────────────────────────────────────────────────────
+  const borradasData = useMemo(() => {
+    const borradas = lineas.filter((j) => estadoOf(j) === "Borrado");
+    const totalBorradas = borradas.length;
+    const usdBorradas = borradas.reduce((s, j) => s + valorCompradoUsd(j), 0);
+
+    // Tendencia mensual de borradas
+    const map = new Map<number, number>();
+    for (const j of borradas) {
+      const m = deriveMes(j);
+      if (!m) continue;
+      map.set(m, (map.get(m) ?? 0) + 1);
+    }
+    const tendenciaBorradas = Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([m, count]) => ({ mes: MESES[m - 1] ?? String(m), borradas: count }));
+
+    // Top proveedores con borradas
+    const provMap = new Map<string, number>();
+    for (const j of borradas) {
+      const p = (j.proveedor ?? "Sin proveedor").trim() || "Sin proveedor";
+      provMap.set(p, (provMap.get(p) ?? 0) + 1);
+    }
+    const topProvBorradas = Array.from(provMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([nombre, count]) => ({ nombre, count }));
+
+    return { totalBorradas, usdBorradas, tendenciaBorradas, topProvBorradas };
+  }, [lineas]);
+
   // ─── KPI OC (basados exclusivamente en BN = controlIncumplimiento) ──────────
   const ocKpis = useMemo(() => {
     const ocMap = new Map<string, BNClass[]>();
@@ -388,26 +623,102 @@ function DashboardGerencial() {
     return { totalOC, entregadas, atiempo, retraso, pendientes: totalOC - entregadas };
   }, [lineas]);
 
-  // ─── Semáforo BK (max BK por OC, 6 grupos) ──────────────────────────────────
+  // ─── Semáforo BK por LÍNEA (no por OC) ─────────────────────────────────────
   const semaforoData = useMemo(() => {
-    const ocMaxBK = new Map<string, number>();
-    for (const j of lineas) {
-      const ocKey = j.oc?.trim() || `__ln_${j.id}`;
-      const bk = j.diasIncumplimiento ?? 0;
-      const cur = ocMaxBK.get(ocKey);
-      if (cur === undefined || bk > cur) ocMaxBK.set(ocKey, bk);
-    }
-    const totalOC = ocMaxBK.size || 1;
+    const totalLineas = lineas.length || 1;
     const counts: Record<SemaforoKey, number> = { atiempo: 0, lt10: 0, d1130: 0, d3160: 0, d6190: 0, gt91: 0 };
-    for (const bk of ocMaxBK.values()) counts[getSemaforoKey(bk)]++;
+    const usdMap:    Record<SemaforoKey, number> = { atiempo: 0, lt10: 0, d1130: 0, d3160: 0, d6190: 0, gt91: 0 };
+    for (const j of lineas) {
+      const k = getSemaforoKey(j.diasIncumplimiento ?? 0);
+      counts[k]++;
+      usdMap[k] += valorCompradoUsd(j);
+    }
     return SEMAFORO_CONFIG.map((s) => ({
       ...s,
-      count: counts[s.key],
-      pct: (counts[s.key] / totalOC) * 100,
+      count:  counts[s.key],
+      usd:    usdMap[s.key],
+      pct:    totalLineas > 0 ? (counts[s.key] / totalLineas) * 100 : 0,
     }));
   }, [lineas]);
 
-  // ─── Tabla ejecutiva ─────────────────────────────────────────────────────────
+  // ─── Gestión Operativa BDP vs FRONTERA ─────────────────────────────────────
+  // Solo sobre líneas pendientes y atrasadas (no entregadas)
+  const lineasPendAtrasadas = useMemo(() =>
+    lineas.filter((j) => isPending(j)), [lineas]);
+
+  const gestionOperativa = useMemo(() => {
+    let fronteraLineas = 0, fronteraUsd = 0;
+    let bdpLineas = 0, bdpUsd = 0;
+    for (const j of lineasPendAtrasadas) {
+      const by = norm(j.categoriaSeguimiento);
+      const usd = valorPendienteUsdFn(j);
+      if (by === "revision administrativa") { fronteraLineas++; fronteraUsd += usd; }
+      else if (by === "revision proveedor") { bdpLineas++; bdpUsd += usd; }
+    }
+    const total = fronteraLineas + bdpLineas || 1;
+    const totalUsd = fronteraUsd + bdpUsd || 1;
+    return {
+      frontera: { lineas: fronteraLineas, usd: fronteraUsd, pctLineas: Math.round((fronteraLineas / total) * 100), pctUsd: Math.round((fronteraUsd / totalUsd) * 100) },
+      bdp:      { lineas: bdpLineas,      usd: bdpUsd,      pctLineas: Math.round((bdpLineas / total) * 100),      pctUsd: Math.round((bdpUsd / totalUsd) * 100) },
+      total: fronteraLineas + bdpLineas,
+    };
+  }, [lineasPendAtrasadas]);
+
+  const gestionChartData = useMemo(() => [
+    { name: "FRONTERA", lineas: gestionOperativa.frontera.lineas, usd: gestionOperativa.frontera.usd, pct: gestionOperativa.frontera.pctLineas, fill: "#3b82f6" },
+    { name: "BDP",      lineas: gestionOperativa.bdp.lineas,      usd: gestionOperativa.bdp.usd,      pct: gestionOperativa.bdp.pctLineas,      fill: "#f59e0b" },
+  ], [gestionOperativa]);
+
+  // ─── Seguimiento Últimos 7 Días ──────────────────────────────────────────────
+  const TODAY = useMemo(() => new Date(), []);
+  const seguimientoData = useMemo(() => {
+    let seguidas = 0, sinSeguimiento = 0;
+    for (const j of lineasPendAtrasadas) {
+      const fecha = j.fechaSeguimiento;
+      if (fecha) {
+        const diff = Math.floor((TODAY.getTime() - new Date(fecha).getTime()) / 86400000);
+        if (diff <= 7) seguidas++;
+        else sinSeguimiento++;
+      } else {
+        sinSeguimiento++;
+      }
+    }
+    const total = seguidas + sinSeguimiento || 1;
+    const pct = Math.round((seguidas / total) * 100);
+    return { seguidas, sinSeguimiento, total: seguidas + sinSeguimiento, pct };
+  }, [lineasPendAtrasadas, TODAY]);
+
+  const semaforo7Dias = seguimientoData.pct >= 80 ? { color: "#22c55e", label: "Óptimo" }
+    : seguimientoData.pct >= 60 ? { color: "#eab308", label: "Alerta" }
+    : { color: "#ef4444", label: "Crítico" };
+
+  // Líneas sin seguimiento — detalle para alerta
+  const lineasSinSeguimiento = useMemo(() =>
+    lineasPendAtrasadas
+      .filter((j) => {
+        const f = j.fechaSeguimiento;
+        if (!f) return true;
+        return Math.floor((TODAY.getTime() - new Date(f).getTime()) / 86400000) > 7;
+      })
+      .map((j) => {
+        const diasSinGestion = j.fechaSeguimiento
+          ? Math.floor((TODAY.getTime() - new Date(j.fechaSeguimiento).getTime()) / 86400000)
+          : null;
+        return { ...j, diasSinGestion };
+      })
+      .sort((a, b) => (b.diasIncumplimiento ?? 0) - (a.diasIncumplimiento ?? 0)),
+  [lineasPendAtrasadas, TODAY]);
+
+  const [mostrarAlerta, setMostrarAlerta] = useState(false);
+  const [expandedCat, setExpandedCat]   = useState<Record<string, boolean>>({});
+  const [expandedDet, setExpandedDet]   = useState<Record<string, boolean>>({});
+  const [expandedArea, setExpandedArea] = useState<Record<string, boolean>>({});
+
+  const seguimientoChartData = useMemo(() => [
+    { name: "Con seguimiento",    value: seguimientoData.seguidas,       fill: "#22c55e" },
+    { name: "Sin seguimiento",   value: seguimientoData.sinSeguimiento, fill: "#ef4444" },
+  ], [seguimientoData]);
+
   const tabla = useMemo(() => {
     type Acc = {
       campo: string; gerencia: string; cuenta: string;
@@ -476,7 +787,7 @@ function DashboardGerencial() {
       {/* FILTROS GLOBALES */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Filtros</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-10 gap-3">
           <Sel label="Año" value={fAnio} onChange={setFAnio} options={aniosOpt} />
           <Sel label="Semestre" value={fSemestre} onChange={setFSemestre} options={semestresOpt}
             getLabel={(v) => `S${v}`} />
@@ -487,7 +798,7 @@ function DashboardGerencial() {
           <Sel label="Gerencia" value={fGerencia} onChange={setFGerencia} options={gerenciasOpt} />
           <Sel label="Campo" value={fCampo} onChange={setFCampo} options={camposOpt} />
           <Sel label="Cuenta" value={fCuenta} onChange={setFCuenta} options={cuentasOpt} />
-          <Sel label="Categoría" value={fCategoriaSeguimiento} onChange={setFCategoriaSeguimiento} options={categoriasSeguimientoOpt} />
+          <Sel label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedoresOpt} />
           <MultiStateFilter label="Estado" selected={fEstados} onChange={setFEstados} options={estadosOpt} counts={estadoCounts} />
         </div>
       </div>
@@ -537,25 +848,62 @@ function DashboardGerencial() {
         </div>
       </Section>
 
-      {/* KPIs Unidades */}
-      <Section title="Unidades · Total, entregadas y pendientes">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <Kpi icon={Boxes}         label="Total unidades"    value={unidades.toLocaleString()}          tint="chart-1" />
-          <Kpi icon={PackageCheck}  label="Entregadas"        value={unidadesEntregadas.toLocaleString()} tint="success"
-            sub={`${pct(unidadesEntregadas, unidades)}%`}
-            onClick={() => setOrClear(["Entregado"])} active={isEstadoActive(["Entregado"])} />
-          <Kpi icon={TrendingDown}  label="Entregadas a tiempo" value={unidadesAtiempo.toLocaleString()}  tint="info"
-            sub={`${pct(unidadesAtiempo, unidades)}%`} />
-          <Kpi icon={AlertTriangle} label="Entregadas tarde"  value={unidadesTarde.toLocaleString()}      tint="destructive"
-            sub={`${pct(unidadesTarde, unidades)}%`} />
-          <Kpi icon={PackageMinus}  label="Pendientes"        value={unidadesPendientes.toLocaleString()} tint="warning"
-            sub={`${pct(unidadesPendientes, unidades)}%`}
-            onClick={() => setOrClear(["Sin entrega", "Entregado Parcial"])} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
+      {/* MÓDULO PROVEEDORES — reemplaza Unidades */}
+      <Section title="Proveedores · Análisis por líneas">
+        <div className="space-y-4">
+          {/* KPIs principales */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Kpi icon={Building2}    label="Total proveedores"        value={proveedoresData.totalProveedores} tint="chart-1" />
+            <Kpi icon={Users}        label="Proveedores activos"      value={proveedoresData.proveedoresActivos} tint="info"
+              sub="Con líneas pendientes" />
+            <Kpi icon={CheckCircle2} label="Entregadas a tiempo"      value={proveedoresData.totalEntregadasAtiempo.toLocaleString()} tint="success"
+              sub={`${pct(proveedoresData.totalEntregadasAtiempo, lineasTotal)}%`} />
+            <Kpi icon={AlertTriangle} label="Entregadas con retraso"  value={proveedoresData.totalEntregadasTarde.toLocaleString()} tint="destructive"
+              sub={`${pct(proveedoresData.totalEntregadasTarde, lineasTotal)}%`} />
+          </div>
+          {/* Rankings y gráfico */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Rankings */}
+            <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Rankings de proveedores</h3>
+              {[
+                { label: "Mayor nº de líneas",        value: proveedoresData.topLineas,     color: "#6366f1" },
+                { label: "Mayor nº llamados/compromisos", value: proveedoresData.topLlamados, color: "#ef4444" },
+                { label: "Mayor nº líneas pendientes", value: proveedoresData.topPendientes, color: "#f59e0b" },
+                { label: "Mayor nº líneas entregadas", value: proveedoresData.topEntregadas, color: "#10b981" },
+              ].map((r) => (
+                <div key={r.label} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
+                  <span className="text-xs text-muted-foreground flex-1">{r.label}</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${r.color}20`, color: r.color }}>
+                    {r.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* Gráfico top 8 por líneas */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Top proveedores · Líneas (total / pendientes)</h3>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={proveedoresData.chartData} layout="vertical" margin={{ top: 2, right: 50, left: 4, bottom: 2 }}>
+                    <XAxis type="number" tick={{ fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} />
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={(v: number, name: string) => [v.toLocaleString(), name === "lineas" ? "Total líneas" : name === "pendientes" ? "Pendientes" : "Entregadas"]} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="lineas"     name="Total"      fill="#6366f1" radius={[0, 4, 4, 0]} barSize={8} />
+                    <Bar dataKey="pendientes" name="Pendientes" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
+                    <Bar dataKey="entregadas" name="Entregadas" fill="#10b981" radius={[0, 4, 4, 0]} barSize={8} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
         </div>
       </Section>
 
-      {/* SEMÁFORO BK – 6 grupos (tarjetas de datos) */}
-      <Section title="Semáforo de Cumplimiento · días de incumplimiento (BK) · max por OC">
+      {/* SEMÁFORO BK – 6 grupos por línea */}
+      <Section title="Semáforo de Cumplimiento · días de incumplimiento (BK) · por línea">
         <div className="bg-card border border-border rounded-lg p-4">
           {fSemaforoKey && (
             <div className="flex items-center justify-between mb-2 text-xs">
@@ -570,11 +918,11 @@ function DashboardGerencial() {
               </button>
             </div>
           )}
-          <div className="h-48">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={semaforoData}
-                margin={{ top: 4, right: 8, left: 0, bottom: 44 }}
+                margin={{ top: 56, right: 8, left: 0, bottom: 44 }}
                 style={{ cursor: "pointer" }}
                 onClick={(e) => {
                   if (e?.activePayload?.[0]) {
@@ -587,7 +935,14 @@ function DashboardGerencial() {
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  formatter={(v: number) => [`${v} OC`, "Cantidad"]}
+                  formatter={(_v: number, _n: string, props: { payload?: { count: number; usd: number; pct: number } }) => {
+                    const d = props.payload;
+                    if (!d) return ["", ""];
+                    return [
+                      `${d.count.toLocaleString()} líneas · ${fmtMoney(d.usd, "USD")} · ${Math.round(d.pct)}%`,
+                      "Líneas",
+                    ];
+                  }}
                   cursor={{ fill: "rgba(255,255,255,0.05)" }}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
@@ -598,11 +953,55 @@ function DashboardGerencial() {
                       opacity={fSemaforoKey && fSemaforoKey !== g.key ? 0.35 : 1}
                     />
                   ))}
+                  <LabelList
+                    content={(props) => {
+                      const { x, y, width, value, index } = props as {
+                        x: number; y: number; width: number; value: number; index: number;
+                      };
+                      const d = semaforoData[index];
+                      if (!d || value === 0) return null;
+                      const cx = x + width / 2;
+                      return (
+                        <g>
+                          <text x={cx} y={(y as number) - 38} textAnchor="middle" fontSize={11} fontWeight={700} fill={d.color}>
+                            {value.toLocaleString()}
+                          </text>
+                          <text x={cx} y={(y as number) - 24} textAnchor="middle" fontSize={9} fill="var(--muted-foreground)">
+                            {fmtMoney(d.usd, "USD")}
+                          </text>
+                          <text x={cx} y={(y as number) - 11} textAnchor="middle" fontSize={10} fontWeight={600} fill={d.color}>
+                            {Math.round(d.pct)}%
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </Section>
+
+      {/* PENDIENTES POR CATEGORÍA DE SEGUIMIENTO — jerarquía 4 niveles */}
+      <Section title="Pendientes por Categoría de Seguimiento · FRONTERA ENERGY vs BDP">
+        {pendientesPorCategoria.length === 0 ? (
+          <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+            Sin líneas pendientes con los filtros actuales.
+          </div>
+        ) : (
+          <CatSeguimientoChart
+            data={pendientesPorCategoria}
+            fmtMoney={fmtMoney}
+            tooltipStyle={tooltipStyle}
+            expandedCat={expandedCat}
+            setExpandedCat={setExpandedCat}
+            expandedDet={expandedDet}
+            setExpandedDet={setExpandedDet}
+            expandedArea={expandedArea}
+            setExpandedArea={setExpandedArea}
+          />
+        )}
       </Section>
 
       {/* Cumplimiento Donut */}
@@ -619,11 +1018,395 @@ function DashboardGerencial() {
         </div>
       </Section>
 
-      {/* Tendencia mensual USD */}
-      <Section title="Tendencia mensual · USD comprado vs recibido vs pendiente">
-        <Card title="USD por mes" subtitle="Comprado vs Recibido vs Pendiente">
-          <BarsUsd data={tendData} />
+      {/* TENDENCIAS — gráfica unificada USD + Líneas */}
+      <Section title="Tendencias Mensuales · USD · Líneas">
+        <Card title="USD comprado / recibido / pendiente · Líneas total / entregadas / pendientes" subtitle="Eje izquierdo: USD · Eje derecho: Líneas">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={tendCombinada} margin={{ top: 4, right: 48, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                {/* Eje Y izquierdo — USD */}
+                <YAxis
+                  yAxisId="usd"
+                  orientation="left"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  width={48}
+                />
+                {/* Eje Y derecho — Líneas */}
+                <YAxis
+                  yAxisId="lin"
+                  orientation="right"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.toLocaleString()}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v: number, name: string) => {
+                    const isUsd = ["Comprado", "Recibido", "Pendiente USD"].includes(name);
+                    return [isUsd ? `$${(v / 1000).toFixed(1)}k` : v.toLocaleString(), name];
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                {/* Barras USD (eje izquierdo) */}
+                <Bar yAxisId="usd" dataKey="comprado"   name="Comprado"      fill={P.comprado}  radius={[2, 2, 0, 0]} barSize={6} />
+                <Bar yAxisId="usd" dataKey="recibido"   name="Recibido"      fill={P.recibido}  radius={[2, 2, 0, 0]} barSize={6} />
+                <Bar yAxisId="usd" dataKey="pendiente"  name="Pendiente USD" fill={P.pendiente} radius={[2, 2, 0, 0]} barSize={6} />
+                {/* Líneas (eje derecho) */}
+                <Line yAxisId="lin" type="monotone" dataKey="total"      name="Total líneas"  stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="lin" type="monotone" dataKey="entregadas" name="Entregadas"    stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="lin" type="monotone" dataKey="pendientes" name="Pendientes"    stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
+      </Section>
+
+      {/* SEGUIMIENTO ÚLTIMOS 7 DÍAS */}
+      <Section title="Seguimiento Últimos 7 Días · Líneas pendientes con gestión reciente">
+        <div className="bg-card border border-border rounded-lg p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* ── Gauge central ── */}
+            <div className="flex flex-col items-center justify-center gap-3">
+              <div className="relative" style={{ width: 160, height: 160 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    {/* pista gris de fondo */}
+                    <Pie data={[{ value: 100 }]} dataKey="value"
+                      startAngle={210} endAngle={-30}
+                      innerRadius={54} outerRadius={72}
+                      stroke="none" isAnimationActive={false}>
+                      <Cell fill="var(--muted)" />
+                    </Pie>
+                    {/* arco de progreso */}
+                    <Pie
+                      data={[
+                        { value: seguimientoData.pct },
+                        { value: Math.max(0, 100 - seguimientoData.pct) },
+                      ]}
+                      dataKey="value"
+                      startAngle={210} endAngle={-30}
+                      innerRadius={54} outerRadius={72}
+                      stroke="none" paddingAngle={0}
+                    >
+                      <Cell fill={semaforo7Dias.color} />
+                      <Cell fill="transparent" />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* texto central superpuesto */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 12 }}>
+                  <span className="text-3xl font-bold tabular-nums" style={{ color: semaforo7Dias.color }}>
+                    {seguimientoData.pct}%
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: semaforo7Dias.color }}>
+                    {semaforo7Dias.label}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center leading-tight">
+                % de líneas pendientes<br />gestionadas en los últimos 7 días
+              </p>
+              {/* escala semáforo */}
+              <div className="flex gap-2 text-[10px]">
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-destructive" />&lt;60%</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />60–79%</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />≥80%</span>
+              </div>
+            </div>
+
+            {/* ── Métricas ── */}
+            <div className="flex flex-col justify-center gap-4">
+              {/* total */}
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-muted">
+                  <Layers className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total líneas pendientes</div>
+                  <div className="text-xl font-bold tabular-nums text-foreground">{seguimientoData.total.toLocaleString()}</div>
+                </div>
+              </div>
+              {/* seguidas */}
+              <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: "#22c55e18", border: "1px solid #22c55e30" }}>
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#22c55e20" }}>
+                  <CheckCircle2 className="h-5 w-5" style={{ color: "#22c55e" }} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] uppercase tracking-wide" style={{ color: "#22c55e" }}>Con seguimiento (≤ 7 días)</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: "#22c55e" }}>{seguimientoData.seguidas.toLocaleString()}</div>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: "#22c55e" }}>
+                  {seguimientoData.total ? Math.round((seguimientoData.seguidas / seguimientoData.total) * 100) : 0}%
+                </span>
+              </div>
+              {/* sin seguimiento */}
+              <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: "#ef444418", border: "1px solid #ef444430" }}>
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#ef444420" }}>
+                  <AlertTriangle className="h-5 w-5" style={{ color: "#ef4444" }} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] uppercase tracking-wide" style={{ color: "#ef4444" }}>Sin seguimiento (&gt; 7 días)</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: "#ef4444" }}>{seguimientoData.sinSeguimiento.toLocaleString()}</div>
+                </div>
+                <span className="text-sm font-semibold" style={{ color: "#ef4444" }}>
+                  {seguimientoData.total ? Math.round((seguimientoData.sinSeguimiento / seguimientoData.total) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+
+            {/* ── Barra apilada + detalle ── */}
+            <div className="flex flex-col justify-center gap-4">
+              <div>
+                <div className="text-xs font-semibold text-foreground mb-2">Distribución de gestión</div>
+                {/* barra apilada horizontal */}
+                <div className="h-10 rounded-lg overflow-hidden flex" style={{ border: "1px solid var(--border)" }}>
+                  <div
+                    className="flex items-center justify-center text-[11px] font-bold text-white transition-all"
+                    style={{
+                      width: `${seguimientoData.total ? (seguimientoData.seguidas / seguimientoData.total) * 100 : 0}%`,
+                      backgroundColor: "#22c55e",
+                      minWidth: seguimientoData.seguidas > 0 ? 28 : 0,
+                    }}
+                  >
+                    {seguimientoData.seguidas > 0 && `${Math.round((seguimientoData.seguidas / (seguimientoData.total || 1)) * 100)}%`}
+                  </div>
+                  <div
+                    className="flex items-center justify-center text-[11px] font-bold text-white transition-all flex-1"
+                    style={{ backgroundColor: "#ef4444", minWidth: seguimientoData.sinSeguimiento > 0 ? 28 : 0 }}
+                  >
+                    {seguimientoData.sinSeguimiento > 0 && `${Math.round((seguimientoData.sinSeguimiento / (seguimientoData.total || 1)) * 100)}%`}
+                  </div>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span style={{ color: "#22c55e" }}>■ Gestionadas</span>
+                  <span style={{ color: "#ef4444" }}>■ Sin gestión</span>
+                </div>
+              </div>
+              {/* gráfico de barras recharts */}
+              <div>
+                <div className="text-xs font-semibold text-foreground mb-1">Comparativa líneas</div>
+                <div className="h-28">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={seguimientoChartData}
+                      layout="vertical"
+                      margin={{ top: 2, right: 48, left: 4, bottom: 2 }}
+                    >
+                      <XAxis type="number" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        formatter={(v: number) => [v.toLocaleString(), "Líneas"]}
+                        cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                      />
+                      <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22}>
+                        {seguimientoChartData.map((d) => <Cell key={d.name} fill={d.fill} />)}
+                        <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: "var(--foreground)" }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* fórmula */}
+              <div className="text-[10px] text-muted-foreground border border-border rounded-md px-3 py-2 bg-muted/30">
+                <span className="font-semibold text-foreground">Fórmula: </span>
+                % Seguimiento = Líneas seguidas ÷ Total pendientes × 100
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── Panel de alerta: líneas sin seguimiento ── */}
+          {lineasSinSeguimiento.length > 0 && (() => {
+            const fronteraSin = lineasSinSeguimiento.filter(j => norm(j.categoriaSeguimiento) === "revision administrativa").length;
+            const bdpSin      = lineasSinSeguimiento.filter(j => norm(j.categoriaSeguimiento) === "revision proveedor").length;
+            const otrasSin    = lineasSinSeguimiento.length - fronteraSin - bdpSin;
+            return (
+            <div className="rounded-lg overflow-hidden" style={{ border: "1px solid #ef444440" }}>
+              <button
+                type="button"
+                onClick={() => setMostrarAlerta(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 transition-colors"
+                style={{ backgroundColor: "#ef444410" }}
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: "#ef4444" }} />
+                    <span className="text-sm font-semibold" style={{ color: "#ef4444" }}>
+                      {lineasSinSeguimiento.length} líneas sin seguimiento
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    {fronteraSin > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: "#3b82f615", color: "#3b82f6", border: "1px solid #3b82f630" }}>
+                        FRONTERA&nbsp;<strong>{fronteraSin}</strong>
+                      </span>
+                    )}
+                    {bdpSin > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: "#f59e0b15", color: "#f59e0b", border: "1px solid #f59e0b30" }}>
+                        BDP&nbsp;<strong>{bdpSin}</strong>
+                      </span>
+                    )}
+                    {otrasSin > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: "#6b728015", color: "#6b7280", border: "1px solid #6b728030" }}>
+                        Sin clasificar&nbsp;<strong>{otrasSin}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform" style={{ color: "#ef4444", transform: mostrarAlerta ? "rotate(180deg)" : "rotate(0deg)" }} />
+              </button>
+
+              {mostrarAlerta && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-left" style={{ backgroundColor: "var(--muted)" }}>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Urgencia</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Gestión</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">OC</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Material</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Proveedor</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Responsable</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Gerencia</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Campo</th>
+                        <th className="py-2 px-3 text-right font-semibold text-muted-foreground uppercase tracking-wide">Días incumpl.</th>
+                        <th className="py-2 px-3 text-right font-semibold text-muted-foreground uppercase tracking-wide">Días sin gestión</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Último seguim.</th>
+                        <th className="py-2 px-3 font-semibold text-muted-foreground uppercase tracking-wide">Estado entrega</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lineasSinSeguimiento.slice(0, 50).map((j, i) => {
+                        const dias = j.diasIncumplimiento ?? 0;
+                        const [urgColor, urgBg, urgLabel] =
+                          dias > 90 ? ["#991b1b", "#991b1b15", ">91d 🔴"] :
+                          dias > 60 ? ["#ef4444", "#ef444415", "61-90d 🔴"] :
+                          dias > 30 ? ["#f97316", "#f9731615", "31-60d 🟠"] :
+                          dias > 10 ? ["#eab308", "#eab30815", "11-30d 🟡"] :
+                                      ["#22c55e", "#22c55e15", "≤10d 🟢"];
+                        return (
+                          <tr key={j.id ?? i} className="border-b hover:bg-muted/20" style={{ borderColor: "var(--border)" }}>
+                            <td className="py-2 px-3">
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: urgBg, color: urgColor }}>
+                                {urgLabel}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3">
+                              {(() => {
+                                const by = norm(j.categoriaSeguimiento);
+                                if (by === "revision administrativa") return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: "#3b82f615", color: "#3b82f6", border: "1px solid #3b82f630" }}>FRONTERA</span>;
+                                if (by === "revision proveedor")      return <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: "#f59e0b15", color: "#f59e0b", border: "1px solid #f59e0b30" }}>BDP</span>;
+                                return <span className="text-[10px] text-muted-foreground">—</span>;
+                              })()}
+                            </td>
+                            <td className="py-2 px-3 font-medium text-foreground">{j.oc ?? "—"}</td>
+                            <td className="py-2 px-3 text-muted-foreground max-w-[140px] truncate" title={j.material ?? ""}>{j.material ?? "—"}</td>
+                            <td className="py-2 px-3 text-muted-foreground max-w-[120px] truncate" title={j.proveedor ?? ""}>{j.proveedor ?? "—"}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{j.responsable ?? "—"}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{j.gerencia ?? "—"}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{j.campo ?? "—"}</td>
+                            <td className="py-2 px-3 text-right">
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums" style={{ backgroundColor: urgBg, color: urgColor }}>
+                                {dias > 0 ? `+${dias}d` : `${dias}d`}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              {j.diasSinGestion !== null
+                                ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-destructive/15 text-destructive">{j.diasSinGestion}d</span>
+                                : <span className="text-[10px] font-semibold text-destructive">Sin fecha</span>}
+                            </td>
+                            <td className="py-2 px-3 text-muted-foreground tabular-nums">
+                              {j.fechaSeguimiento ?? <span className="font-semibold" style={{ color: "#ef4444" }}>Nunca</span>}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/15 text-destructive">
+                                {estadoOf(j)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {lineasSinSeguimiento.length > 50 && (
+                    <div className="px-4 py-2 text-xs text-muted-foreground border-t" style={{ borderColor: "var(--border)" }}>
+                      Mostrando 50 de {lineasSinSeguimiento.length} líneas. Aplica filtros para reducir.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+          })()}
+        </div>
+      </Section>
+
+      {/* MÓDULO LÍNEAS BORRADAS */}
+      <Section title="Líneas Borradas · Total, valor USD y tendencia">
+        <div className="space-y-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Kpi icon={Trash2}       label="Total líneas borradas" value={borradasData.totalBorradas.toLocaleString()} tint="destructive"
+              sub={`${pct(borradasData.totalBorradas, rawJobs.length)}% del total`} />
+            <Kpi icon={Wallet}       label="USD asociado"          value={fmtMoney(borradasData.usdBorradas, "USD")}   tint="warning" />
+            <Kpi icon={PackageMinus} label="Proveedores afectados" value={borradasData.topProvBorradas.length.toLocaleString()} tint="chart-1" />
+          </div>
+          {/* Gráficos */}
+          {borradasData.totalBorradas > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tendencia mensual */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Tendencia mensual de borradas</h3>
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={borradasData.tendenciaBorradas} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v.toLocaleString(), "Borradas"]} />
+                      <Bar dataKey="borradas" fill="#ef4444" radius={[2, 2, 0, 0]}>
+                        <LabelList dataKey="borradas" position="top" style={{ fontSize: 10, fill: "var(--foreground)" }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* Top proveedores con borradas */}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Top proveedores con líneas borradas</h3>
+                <div className="space-y-2">
+                  {borradasData.topProvBorradas.map((p, i) => (
+                    <div key={p.nombre} className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-muted-foreground w-4">{i + 1}</span>
+                      <span className="text-xs text-foreground flex-1 truncate">{p.nombre}</span>
+                      <span className="text-xs font-semibold tabular-nums text-destructive">{p.count}</span>
+                      <div className="w-20">
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-destructive" style={{
+                            width: `${borradasData.topProvBorradas[0]?.count ? Math.round((p.count / borradasData.topProvBorradas[0].count) * 100) : 0}%`,
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {borradasData.topProvBorradas.length === 0 && (
+                    <div className="text-xs text-muted-foreground text-center py-4">Sin datos</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {borradasData.totalBorradas === 0 && (
+            <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+              No hay líneas borradas con los filtros actuales.
+            </div>
+          )}
+        </div>
       </Section>
 
       {/* TABLA EJECUTIVA */}
@@ -867,5 +1650,287 @@ function MultiStateFilter({ label, selected, onChange, options, counts }: {
         </div>
       )}
     </label>
+  );
+}
+
+// ─── CatSeguimientoChart ──────────────────────────────────────────────────────
+// Visualización unificada: KPIs superiores + Sunburst/Barras + árbol colapsable.
+// Reemplaza "Pendientes por Categoría" y "Gestión Operativa BDP vs Frontera".
+
+type CatDesgloseItem = {
+  label: string;
+  lineas: number;
+  usd: number;
+  detalles: Array<{
+    detalleStatus: string;
+    lineas: number;
+    usd: number;
+    areas: Array<{
+      area: string;
+      lineas: number;
+      usd: number;
+      statusGenerales: Array<{ sg: string; lineas: number; usd: number }>;
+    }>;
+  }>;
+};
+
+type CatChartProps = {
+  data: CatDesgloseItem[];
+  fmtMoney: (v: number, c: string) => string;
+  tooltipStyle: object;
+  expandedCat:  Record<string, boolean>;
+  setExpandedCat:  React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  expandedDet:  Record<string, boolean>;
+  setExpandedDet:  React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  expandedArea: Record<string, boolean>;
+  setExpandedArea: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+};
+
+// ─── CatSeguimientoChart — drill-down interactivo ────────────────────────────
+// Nivel 1: Categorías (FRONTERA / BDP) — clic → baja al nivel 2
+// Nivel 2: Detalle Status de la categoría — clic → baja al nivel 3
+// Nivel 3: Status General (actividad operativa) — nivel hoja
+// Breadcrumb en la parte superior permite subir cualquier nivel
+function CatSeguimientoChart({ data, fmtMoney, tooltipStyle }: CatChartProps) {
+  const [drill, setDrill] = useState<{ catLabel: string; detLabel?: string } | null>(null);
+
+  const totalLineas = data.reduce((s, c) => s + c.lineas, 0) || 1;
+  const totalUsd    = data.reduce((s, c) => s + c.usd, 0);
+
+  const CAT_COLORS: Record<string, string> = {};
+  data.forEach((cat) => {
+    CAT_COLORS[cat.label] = cat.label.includes("FRONTERA") ? "#3b82f6"
+      : cat.label.includes("BDP") ? "#f59e0b"
+      : "#6b7280";
+  });
+
+  const PALETTE_F = ["#1d4ed8","#2563eb","#3b82f6","#60a5fa","#93c5fd","#bfdbfe","#dbeafe","#eff6ff"];
+  const PALETTE_B = ["#b45309","#d97706","#f59e0b","#fbbf24","#fcd34d","#fde68a","#fef3c7","#fffbeb"];
+  const PALETTE_O = ["#374151","#4b5563","#6b7280","#9ca3af","#d1d5db","#e5e7eb","#f3f4f6","#f9fafb"];
+
+  function pal(catLabel: string, idx: number) {
+    const p = catLabel.includes("FRONTERA") ? PALETTE_F : catLabel.includes("BDP") ? PALETTE_B : PALETTE_O;
+    return p[idx % p.length];
+  }
+
+  function short(label: string) {
+    return label.includes("FRONTERA") ? "FRONTERA ENERGY" : label.includes("BDP") ? "BDP" : label;
+  }
+
+  // ── datos del nivel activo ──────────────────────────────────────────────────
+  type ChartRow = { name: string; lineas: number; usd: number; pct: number; fill: string; drillKey: { catLabel: string; detLabel?: string } | null };
+
+  const { rows, breadcrumb, levelLabel } = ((): { rows: ChartRow[]; breadcrumb: Array<{ label: string; onClick: () => void }>; levelLabel: string } => {
+    if (!drill) {
+      return {
+        levelLabel: "Categoría",
+        breadcrumb: [],
+        rows: data.map((cat) => ({
+          name: short(cat.label),
+          lineas: cat.lineas, usd: cat.usd,
+          pct: Math.round((cat.lineas / totalLineas) * 100),
+          fill: CAT_COLORS[cat.label],
+          drillKey: { catLabel: cat.label },
+        })),
+      };
+    }
+    const cat = data.find((c) => c.label === drill.catLabel);
+    if (!cat) return { levelLabel: "", breadcrumb: [], rows: [] };
+
+    if (!drill.detLabel) {
+      return {
+        levelLabel: "Detalle Status",
+        breadcrumb: [{ label: short(cat.label), onClick: () => setDrill(null) }],
+        rows: cat.detalles.map((det, i) => ({
+          name: det.detalleStatus,
+          lineas: det.lineas, usd: det.usd,
+          pct: Math.round((det.lineas / cat.lineas) * 100),
+          fill: pal(cat.label, i),
+          drillKey: { catLabel: cat.label, detLabel: det.detalleStatus },
+        })),
+      };
+    }
+
+    const det = cat.detalles.find((d) => d.detalleStatus === drill.detLabel);
+    if (!det) return { levelLabel: "", breadcrumb: [], rows: [] };
+    return {
+      levelLabel: "Status General",
+      breadcrumb: [
+        { label: short(cat.label), onClick: () => setDrill(null) },
+        { label: det.detalleStatus, onClick: () => setDrill({ catLabel: cat.label }) },
+      ],
+      rows: det.areas.map((area, i) => ({
+        name: area.area,
+        lineas: area.lineas, usd: area.usd,
+        pct: Math.round((area.lineas / det.lineas) * 100),
+        fill: pal(cat.label, i + 2),
+        drillKey: null,
+      })),
+    };
+  })();
+
+  const barH = Math.max(260, rows.length * 46 + 40);
+
+  const TT = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartRow }> }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ ...tooltipStyle as React.CSSProperties, padding: "8px 12px", minWidth: 190 }}>
+        <div className="font-semibold text-xs mb-1 text-foreground">{d.name}</div>
+        <div className="text-xs text-muted-foreground">{d.lineas.toLocaleString()} líneas · {d.pct}%</div>
+        <div className="text-xs text-muted-foreground">{fmtMoney(d.usd, "USD")}</div>
+        {d.drillKey && <div className="text-[10px] text-muted-foreground mt-1 italic">Clic para ver detalle →</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+
+      {/* ── KPIs superiores — clicables, resaltan la selección ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {data.map((cat) => {
+          const color = CAT_COLORS[cat.label];
+          const selected = drill?.catLabel === cat.label;
+          const faded = drill && drill.catLabel !== cat.label;
+          return (
+            <button key={cat.label} type="button"
+              onClick={() => setDrill(selected && !drill?.detLabel ? null : { catLabel: cat.label })}
+              className="border rounded-lg p-3 bg-muted/20 space-y-1 text-left transition-all hover:shadow-md"
+              style={{ borderColor: selected ? color : `${color}40`, opacity: faded ? 0.45 : 1, boxShadow: selected ? `0 0 0 2px ${color}` : undefined }}
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{short(cat.label)}</div>
+              <div className="flex items-end gap-2">
+                <span className="text-2xl font-bold tabular-nums" style={{ color }}>{cat.lineas.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground pb-0.5">líneas</span>
+                <span className="ml-auto text-sm font-bold tabular-nums" style={{ color }}>{Math.round((cat.lineas / totalLineas) * 100)}%</span>
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">{fmtMoney(cat.usd, "USD")}</div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                <div className="h-full rounded-full" style={{ width: `${Math.round((cat.lineas / totalLineas) * 100)}%`, backgroundColor: color }} />
+              </div>
+            </button>
+          );
+        })}
+        <div className="border rounded-lg p-3 bg-muted/30 space-y-1 border-border">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Total pendientes</div>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-bold tabular-nums text-foreground">{totalLineas.toLocaleString()}</span>
+            <span className="text-xs text-muted-foreground pb-0.5">líneas</span>
+          </div>
+          <div className="text-xs text-muted-foreground tabular-nums">{fmtMoney(totalUsd, "USD")}</div>
+          <div className="h-1.5 rounded-full bg-muted mt-1" />
+        </div>
+      </div>
+
+      {/* ── Breadcrumb + nivel actual ── */}
+      <div className="flex items-center gap-1 flex-wrap border-t border-border pt-3">
+        <button type="button" onClick={() => setDrill(null)}
+          className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${!drill ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          Categoría
+        </button>
+        {breadcrumb.map((b, i) => (
+          <span key={i} className="flex items-center gap-1">
+            <span className="text-muted-foreground text-xs">›</span>
+            <button type="button" onClick={b.onClick}
+              className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${i === breadcrumb.length - 1 && !drill?.detLabel ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {b.label}
+            </button>
+          </span>
+        ))}
+        {drill?.detLabel && (
+          <span className="flex items-center gap-1">
+            <span className="text-muted-foreground text-xs">›</span>
+            <span className="text-xs font-semibold px-2 py-1 rounded bg-primary text-primary-foreground">{drill.detLabel}</span>
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {levelLabel} · {rows.length} ítems · {rows.reduce((s, r) => s + r.lineas, 0).toLocaleString()} líneas
+        </span>
+      </div>
+
+      {/* ── Gráfica drill-down ── */}
+      <div style={{ height: barH }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} layout="vertical"
+            margin={{ top: 4, right: 120, left: 8, bottom: 4 }}
+            style={{ cursor: drill?.detLabel ? "default" : "pointer" }}
+            onClick={(e) => {
+              const d = e?.activePayload?.[0]?.payload as ChartRow | undefined;
+              if (d?.drillKey) setDrill(d.drillKey);
+            }}
+          >
+            <XAxis type="number" tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={155}
+              tickFormatter={(v: string) => v.length > 26 ? v.slice(0, 26) + "…" : v} />
+            <Tooltip content={TT} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+            <Bar dataKey="lineas" radius={[0, 4, 4, 0]}>
+              {rows.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              <LabelList content={(props) => {
+                const { x, y, width, value, index } = props as { x: number; y: number; width: number; value: number; index: number };
+                const d = rows[index];
+                if (!d) return null;
+                return (
+                  <g>
+                    <text x={(x as number) + (width as number) + 6} y={(y as number) + 11} fontSize={11} fontWeight={700} fill={d.fill}>
+                      {value.toLocaleString()}{d.drillKey ? " ›" : ""}
+                    </text>
+                    <text x={(x as number) + (width as number) + 6} y={(y as number) + 23} fontSize={9} fill="var(--muted-foreground)">
+                      {d.pct}% · {fmtMoney(d.usd, "USD")}
+                    </text>
+                  </g>
+                );
+              }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {!drill?.detLabel && rows.length > 0 && (
+        <p className="text-[10px] text-muted-foreground text-center -mt-2">
+          Clic en una barra para ver el siguiente nivel ›
+        </p>
+      )}
+
+      {/* ── tabla completa colapsable ── */}
+      <details className="border-t border-border pt-2">
+        <summary className="text-xs font-semibold text-muted-foreground cursor-pointer select-none hover:text-foreground py-1">
+          ▶ Ver tabla completa
+        </summary>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left border-b border-border text-muted-foreground uppercase tracking-wide text-[10px]">
+                <th className="py-1.5 px-2">Categoría</th>
+                <th className="py-1.5 px-2">Detalle Status</th>
+                <th className="py-1.5 px-2">Status General</th>
+                <th className="py-1.5 px-2 text-right">Líneas</th>
+                <th className="py-1.5 px-2 text-right">USD</th>
+                <th className="py-1.5 px-2 text-right">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.flatMap((cat) =>
+                cat.detalles.flatMap((det) =>
+                  det.areas.map((area) => {
+                    const color = CAT_COLORS[cat.label];
+                    return (
+                      <tr key={`${cat.label}__${det.detalleStatus}__${area.area}`}
+                        className="border-b border-border/30 hover:bg-muted/20">
+                        <td className="py-1.5 px-2 font-semibold" style={{ color }}>{short(cat.label)}</td>
+                        <td className="py-1.5 px-2 text-muted-foreground">{det.detalleStatus}</td>
+                        <td className="py-1.5 px-2 text-foreground">{area.area}</td>
+                        <td className="py-1.5 px-2 text-right font-bold tabular-nums" style={{ color }}>{area.lineas.toLocaleString()}</td>
+                        <td className="py-1.5 px-2 text-right text-muted-foreground tabular-nums">{fmtMoney(area.usd, "USD")}</td>
+                        <td className="py-1.5 px-2 text-right font-semibold tabular-nums" style={{ color }}>{Math.round((area.lineas / totalLineas) * 100)}%</td>
+                      </tr>
+                    );
+                  })
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
   );
 }

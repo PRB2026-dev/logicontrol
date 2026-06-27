@@ -6,7 +6,7 @@ import { useMyRole } from "@/lib/use-role";
 const nav = [
   
   { to: "/dashboard-gerencial", label: "Dashboard Gerencial", icon: BarChart3 },
-  { to: "/casos", label: "Casos", icon: Briefcase },
+  { to: "/casos", label: "Órdenes de Compra", icon: Briefcase },
   { to: "/operaciones", label: "Operaciones", icon: Package },
   { to: "/proyecciones", label: "Proyecciones", icon: TrendingUp },
   { to: "/importar", label: "Importar Excel", icon: Upload },

@@ -14,64 +14,35 @@ import {
   urgencyScore,
   compliance,
   pendientePct,
+  lineStatus,
+  jobDelayDays,
+  deriveTipoCompra,
 } from "@/lib/operational";
-import { jobLlave, jobMoneda, fmtMoney, valorPendienteUsdFn, valorPendienteCopFn } from "@/lib/operational";
+import { jobLlave, jobMoneda, fmtMoney, valorPendienteUsdFn, valorPendienteCopFn, valorCompradoUsd } from "@/lib/operational";
 import { useMemo, useState, Fragment } from "react";
 import {
-  Download,
-  Plus,
-  Search,
-  ChevronRight,
-  Pencil,
-  Trash2,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  ChevronDown,
-  ChevronLeft,
-  Settings2,
-  X,
-  AlertTriangle,
-  Activity,
-  Flame,
+  Download, Plus, Search, ChevronRight, Pencil, Trash2,
+  ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronLeft,
+  Settings2, X, AlertTriangle, Activity, Flame, Package,
+  CheckCircle2, Clock, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { JobFormDialog } from "@/components/job-form-dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { exportJobsToExcel } from "@/lib/export-excel";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-  type ExpandedState,
-  type VisibilityState,
+  flexRender, getCoreRowModel, getExpandedRowModel, getFacetedUniqueValues,
+  getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable,
+  type ColumnDef, type ColumnFiltersState, type SortingState, type ExpandedState, type VisibilityState,
 } from "@tanstack/react-table";
 
 const searchSchema = z.object({ q: z.string().optional() });
@@ -86,16 +57,11 @@ export const Route = createFileRoute("/operaciones")({
 });
 
 const allStatuses: JobStatus[] = [
-  "Booking",
-  "En tránsito",
-  "Arribado",
-  "Aduana",
-  "Entregado",
-  "Facturado",
-  "Cerrado",
-  "Demorado",
+  "Booking", "En tránsito", "Arribado", "Aduana", "Entregado", "Facturado", "Cerrado", "Demorado",
 ];
 const allPriorities: Priority[] = ["Baja", "Media", "Alta", "Crítica"];
+const allLineStatuses = ["Entregado", "Parcial", "Pendiente", "Vencido", "Próximo a Vencer"] as const;
+const allTipoCompra = ["Nacional", "Importación"] as const;
 
 function Operaciones() {
   const jobs = useJobsStore((s) => s.jobs);
@@ -110,39 +76,54 @@ function Operaciones() {
     incoterms: false,
     centro: false,
     moneda: false,
+    valorPendCop: false,
   });
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Job | null>(null);
   const [toDelete, setToDelete] = useState<Job | null>(null);
 
-  // KPIs over the full dataset
+  // Filtros adicionales
+  const [fGerencia, setFGerencia] = useState("");
+  const [fCampo, setFCampo] = useState("");
+  const [fTipoCompra, setFTipoCompra] = useState("");
+  const [fProveedor, setFProveedor] = useState("");
+
+  // Opciones de filtro dinámicas
+  const gerencias = useMemo(() => [...new Set(jobs.map(j => (j.gerencia ?? "").trim()).filter(Boolean))].sort(), [jobs]);
+  const campos = useMemo(() => [...new Set(jobs.map(j => (j.campo ?? "").trim()).filter(Boolean))].sort(), [jobs]);
+  const proveedores = useMemo(() => [...new Set(jobs.map(j => (j.proveedor ?? "").trim()).filter(Boolean))].sort(), [jobs]);
+
+  // Aplicar filtros adicionales antes de la tabla
+  const filteredByExtra = useMemo(() => {
+    let result = jobs;
+    if (fGerencia) result = result.filter(j => (j.gerencia ?? "").trim() === fGerencia);
+    if (fCampo) result = result.filter(j => (j.campo ?? "").trim() === fCampo);
+    if (fTipoCompra) result = result.filter(j => deriveTipoCompra(j) === fTipoCompra);
+    if (fProveedor) result = result.filter(j => (j.proveedor ?? "").trim() === fProveedor);
+    return result;
+  }, [jobs, fGerencia, fCampo, fTipoCompra, fProveedor]);
+
+  // KPIs sobre las líneas filtradas
   const kpis = useMemo(() => {
-    const total = jobs.length;
-    let delayed = 0;
-    let critical = 0;
-    let onTime = 0;
-    let compSum = 0;
-    let compCount = 0;
-    for (const j of jobs) {
-      const d = delayDays(j);
-      if (d > 0) delayed++;
-      else onTime++;
-      if (criticality(j) === "Crítico") critical++;
-      const closed = ["Cerrado", "Facturado", "Entregado"].includes(j.status);
-      if (closed) {
-        compSum += compliance(j);
-        compCount++;
-      }
+    const total = filteredByExtra.length;
+    let entregadas = 0;
+    let parciales = 0;
+    let pendientes = 0;
+    let vencidas = 0;
+    let usdPendiente = 0;
+    let usdTotal = 0;
+    for (const j of filteredByExtra) {
+      const ls = lineStatus(j);
+      if (ls === "Entregado") entregadas++;
+      else if (ls === "Parcial") parciales++;
+      else if (ls === "Vencido") vencidas++;
+      else pendientes++;
+      usdPendiente += valorPendienteUsdFn(j);
+      usdTotal += valorCompradoUsd(j);
     }
-    return {
-      total,
-      delayed,
-      critical,
-      onTime,
-      compliance: compCount ? Math.round(compSum / compCount) : 0,
-    };
-  }, [jobs]);
+    return { total, entregadas, parciales, pendientes, vencidas, usdPendiente, usdTotal };
+  }, [filteredByExtra]);
 
   const columns = useMemo<ColumnDef<Job>[]>(
     () => [
@@ -150,16 +131,9 @@ function Operaciones() {
         id: "expander",
         header: () => null,
         cell: ({ row }) => (
-          <button
-            onClick={() => row.toggleExpanded()}
-            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted"
-            aria-label="Expandir"
-          >
-            <ChevronRight
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                row.getIsExpanded() ? "rotate-90" : ""
-              }`}
-            />
+          <button onClick={() => row.toggleExpanded()}
+            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted" aria-label="Expandir">
+            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${row.getIsExpanded() ? "rotate-90" : ""}`} />
           </button>
         ),
         size: 32,
@@ -170,37 +144,26 @@ function Operaciones() {
         header: "LLAVE",
         accessorFn: (j) => jobLlave(j),
         cell: ({ row }) => (
-          <Link
-            to="/operaciones/$jobId"
-            params={{ jobId: row.original.id } as any}
-            className="font-mono text-xs font-semibold text-info hover:underline"
-            title="Ver detalle de la línea"
-          >
+          <Link to="/operaciones/$jobId" params={{ jobId: row.original.id } as any}
+            className="font-mono text-xs font-semibold text-info hover:underline" title="Ver detalle de la línea">
             {jobLlave(row.original)}
           </Link>
         ),
       },
       {
         accessorKey: "oc",
-        header: "Orden de Compra",
+        header: "OC",
         cell: ({ row }) => (
-          <Link
-            to="/operaciones/$jobId"
-            params={{ jobId: row.original.id } as any}
-            className="font-mono font-semibold text-info hover:underline"
-            title="Ver detalle"
-          >
-            {row.original.oc || row.original.bdpJob || "—"}
-          </Link>
+          <span className="font-mono text-xs text-foreground">{row.original.oc || row.original.bdpJob || "—"}</span>
         ),
       },
-      { accessorKey: "posicion", header: "Pos." },
+      { accessorKey: "posicion", header: "Pos.", cell: ({ row }) => <span className="text-xs">{row.original.posicion || "—"}</span> },
       { accessorKey: "codigoSap", header: "SAP" },
       {
         accessorKey: "proveedor",
         header: "Proveedor",
         cell: ({ row }) => (
-          <div className="max-w-[220px] truncate" title={row.original.proveedor || row.original.cliente}>
+          <div className="max-w-[180px] truncate text-xs" title={row.original.proveedor || row.original.cliente}>
             {row.original.proveedor || row.original.cliente || "—"}
           </div>
         ),
@@ -209,7 +172,7 @@ function Operaciones() {
         accessorKey: "material",
         header: "Material",
         cell: ({ row }) => (
-          <div className="max-w-[260px] truncate text-muted-foreground" title={row.original.material ?? ""}>
+          <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={row.original.material ?? ""}>
             {row.original.material || "—"}
           </div>
         ),
@@ -218,29 +181,126 @@ function Operaciones() {
         accessorKey: "qty",
         header: () => <div className="text-right">QTY</div>,
         cell: ({ row }) => (
-          <div className="text-right tabular">
+          <div className="text-right tabular text-xs">
             {Number(row.original.qty ?? 0).toLocaleString("es-CO")}{" "}
-            <span className="text-xs text-muted-foreground">{row.original.um ?? ""}</span>
+            <span className="text-muted-foreground">{row.original.um ?? ""}</span>
+          </div>
+        ),
+      },
+      {
+        id: "qtyEntregada",
+        header: () => <div className="text-right">Entreg.</div>,
+        accessorFn: (j) => Number(j.qtyEntregada ?? 0),
+        cell: ({ row }) => (
+          <div className="text-right tabular text-xs">
+            {Number(row.original.qtyEntregada ?? 0).toLocaleString("es-CO")}
           </div>
         ),
       },
       {
         id: "pendiente",
-        header: () => <div className="text-right">Pend.</div>,
+        header: () => <div className="text-right">Pend.%</div>,
         accessorFn: (j) => pendientePct(j),
         cell: ({ row }) => {
           const pct = pendientePct(row.original);
           return (
-            <div className="flex items-center gap-2 justify-end min-w-[110px]">
-              <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full ${pct > 60 ? "bg-destructive" : pct > 25 ? "bg-warning" : "bg-success"}`}
-                  style={{ width: `${pct}%` }}
-                />
+            <div className="flex items-center gap-2 justify-end min-w-[100px]">
+              <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
+                <div className={`h-full ${pct > 60 ? "bg-destructive" : pct > 25 ? "bg-warning" : "bg-success"}`}
+                  style={{ width: `${pct}%` }} />
               </div>
-              <span className="text-xs tabular text-muted-foreground w-8 text-right">{pct}%</span>
+              <span className="text-[11px] tabular text-muted-foreground w-8 text-right">{pct}%</span>
             </div>
           );
+        },
+      },
+      {
+        id: "lineStatus",
+        header: "Estado Línea",
+        accessorFn: (j) => lineStatus(j),
+        cell: ({ row }) => {
+          const ls = lineStatus(row.original);
+          const c = ls === "Entregado" ? "bg-success/15 text-success" :
+            ls === "Parcial" ? "bg-info/15 text-info" :
+            ls === "Vencido" ? "bg-destructive/15 text-destructive" :
+            ls === "Próximo a Vencer" ? "bg-warning/15 text-warning" :
+            "bg-muted text-muted-foreground";
+          return <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${c}`}>{ls}</span>;
+        },
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(lineStatus(row.original)),
+      },
+      {
+        id: "fechaCompromiso",
+        header: "F. Compromiso",
+        accessorFn: (j) => j.fechaCompromiso || j.fechaEntregaContractual || "",
+        cell: ({ row }) => (
+          <span className="text-xs tabular text-muted-foreground">
+            {row.original.fechaCompromiso || row.original.fechaEntregaContractual || "—"}
+          </span>
+        ),
+      },
+      {
+        id: "delay",
+        header: () => <div className="text-right">Días Incumpl.</div>,
+        accessorFn: (j) => jobDelayDays(j),
+        cell: ({ row }) => {
+          const d = jobDelayDays(row.original);
+          const color = d > 90 ? "bg-[#991b1b]/15 text-[#991b1b]" :
+            d > 30 ? "bg-destructive/15 text-destructive" :
+            d > 10 ? "bg-warning/15 text-warning" :
+            d > 0 ? "bg-warning/10 text-warning" :
+            "bg-success/15 text-success";
+          return (
+            <div className="text-right">
+              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${color}`}>
+                {d > 0 ? `+${d}d` : d === 0 ? "0d" : `${d}d`}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        id: "gerencia",
+        header: "Gerencia",
+        accessorFn: (j) => j.gerencia || "—",
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.gerencia || "—"}</span>,
+      },
+      {
+        id: "campo",
+        header: "Campo",
+        accessorFn: (j) => j.campo || "—",
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.campo || "—"}</span>,
+      },
+      {
+        accessorKey: "responsable",
+        header: "Responsable",
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.responsable || "—"}</span>,
+      },
+      {
+        id: "tipoCompra",
+        header: "Tipo",
+        accessorFn: (j) => deriveTipoCompra(j),
+        cell: ({ row }) => {
+          const t = deriveTipoCompra(row.original);
+          return <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${t === "Importación" ? "bg-info/15 text-info" : "bg-muted text-muted-foreground"}`}>{t}</span>;
+        },
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(deriveTipoCompra(row.original)),
+      },
+      {
+        id: "valorPendUsd",
+        header: () => <div className="text-right">USD Pend.</div>,
+        accessorFn: (j) => valorPendienteUsdFn(j),
+        cell: ({ row }) => (
+          <div className="text-right tabular text-xs font-medium">{fmtMoney(valorPendienteUsdFn(row.original), "USD")}</div>
+        ),
+      },
+      {
+        id: "valorPendCop",
+        header: () => <div className="text-right">COP Pend.</div>,
+        accessorFn: (j) => valorPendienteCopFn(j),
+        cell: ({ row }) => {
+          const v = valorPendienteCopFn(row.original);
+          return <div className="text-right tabular text-xs text-muted-foreground">{v > 0 ? fmtMoney(v, "COP") : "—"}</div>;
         },
       },
       { accessorKey: "incoterms", header: "Incoterms" },
@@ -249,70 +309,7 @@ function Operaciones() {
         id: "moneda",
         header: "Moneda",
         accessorFn: (j) => jobMoneda(j),
-        cell: ({ row }) => (
-          <span className="text-xs font-mono text-muted-foreground">{jobMoneda(row.original)}</span>
-        ),
-      },
-      {
-        id: "valorPendUsd",
-        header: () => <div className="text-right">Pend. USD</div>,
-        accessorFn: (j) => valorPendienteUsdFn(j),
-        cell: ({ row }) => (
-          <div className="text-right tabular text-xs text-foreground">
-            {fmtMoney(valorPendienteUsdFn(row.original), "USD")}
-          </div>
-        ),
-      },
-      {
-        id: "valorPendCop",
-        header: () => <div className="text-right">Pend. COP</div>,
-        accessorFn: (j) => valorPendienteCopFn(j),
-        cell: ({ row }) => {
-          const v = valorPendienteCopFn(row.original);
-          return (
-            <div className="text-right tabular text-xs text-muted-foreground">
-              {v > 0 ? fmtMoney(v, "COP") : "—"}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "status",
-        header: "Estado",
-        cell: ({ row }) => (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[row.original.status]}`}>
-            {row.original.status}
-          </span>
-        ),
-        filterFn: (row, _id, value: string[]) =>
-          !value?.length || value.includes(row.original.status),
-      },
-      {
-        accessorKey: "prioridad",
-        header: "Prio.",
-        cell: ({ row }) => (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[row.original.prioridad]}`}>
-            {row.original.prioridad}
-          </span>
-        ),
-        filterFn: (row, _id, value: string[]) =>
-          !value?.length || value.includes(row.original.prioridad),
-      },
-      {
-        id: "delay",
-        header: () => <div className="text-right">Retraso</div>,
-        accessorFn: (j) => delayDays(j),
-        cell: ({ getValue }) => {
-          const d = getValue<number>();
-          const bucket = delayBucket(d);
-          return (
-            <div className="text-right">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${delayBucketColors[bucket]}`}>
-                {d > 0 ? `+${d}d` : d === 0 ? "Hoy" : `${d}d`}
-              </span>
-            </div>
-          );
-        },
+        cell: ({ row }) => <span className="text-xs font-mono text-muted-foreground">{jobMoneda(row.original)}</span>,
       },
       {
         id: "sla",
@@ -320,16 +317,7 @@ function Operaciones() {
         accessorFn: (j) => slaStatus(j),
         cell: ({ row }) => {
           const s = slaStatus(row.original);
-          return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${slaColors[s]}`}>● {s}</span>;
-        },
-      },
-      {
-        id: "criticality",
-        header: "Criticidad",
-        accessorFn: (j) => criticality(j),
-        cell: ({ row }) => {
-          const c = criticality(row.original);
-          return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${criticalityColors[c]}`}>{c}</span>;
+          return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${slaColors[s]}`}>● {s}</span>;
         },
       },
       {
@@ -340,31 +328,34 @@ function Operaciones() {
           const s = getValue<number>();
           const color = s >= 80 ? "bg-destructive" : s >= 55 ? "bg-warning" : s >= 30 ? "bg-info" : "bg-success";
           return (
-            <div className="flex items-center gap-2 justify-end min-w-[110px]">
-              <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+            <div className="flex items-center gap-2 justify-end min-w-[100px]">
+              <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
                 <div className={`h-full ${color}`} style={{ width: `${s}%` }} />
               </div>
-              <span className="text-xs tabular w-8 text-right">{s}</span>
+              <span className="text-[11px] tabular w-7 text-right">{s}</span>
             </div>
           );
         },
       },
       {
-        accessorKey: "eta",
-        id: "etaCampo",
-        header: "ETA Campo",
+        accessorKey: "prioridad",
+        header: "Prio.",
         cell: ({ row }) => (
-          <div className="text-xs text-muted-foreground tabular">
-            {row.original.etaCampo || row.original.eta || "—"}
-          </div>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${priorityColors[row.original.prioridad]}`}>
+            {row.original.prioridad}
+          </span>
         ),
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(row.original.prioridad),
       },
       {
-        accessorKey: "responsable",
-        header: "Responsable",
+        accessorKey: "status",
+        header: "Status",
         cell: ({ row }) => (
-          <div className="text-xs text-muted-foreground">{row.original.responsable || "—"}</div>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[row.original.status]}`}>
+            {row.original.status}
+          </span>
         ),
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(row.original.status),
       },
       {
         id: "actions",
@@ -372,28 +363,16 @@ function Operaciones() {
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1">
-            <Link
-              to="/operaciones/$jobId"
-              params={{ jobId: row.original.id } as any}
-              className="inline-flex items-center px-2 h-7 rounded-md text-xs text-info hover:bg-info/10"
-            >
+            <Link to="/operaciones/$jobId" params={{ jobId: row.original.id } as any}
+              className="inline-flex items-center px-2 h-7 rounded-md text-xs text-info hover:bg-info/10">
               Ver <ChevronRight className="h-3 w-3" />
             </Link>
-            <button
-              onClick={() => {
-                setEditing(row.original);
-                setFormOpen(true);
-              }}
-              className="h-7 w-7 rounded-md hover:bg-muted inline-flex items-center justify-center"
-              title="Editar"
-            >
+            <button onClick={() => { setEditing(row.original); setFormOpen(true); }}
+              className="h-7 w-7 rounded-md hover:bg-muted inline-flex items-center justify-center" title="Editar">
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <button
-              onClick={() => setToDelete(row.original)}
-              className="h-7 w-7 rounded-md hover:bg-destructive/10 inline-flex items-center justify-center"
-              title="Eliminar"
-            >
+            <button onClick={() => setToDelete(row.original)}
+              className="h-7 w-7 rounded-md hover:bg-destructive/10 inline-flex items-center justify-center" title="Eliminar">
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </button>
           </div>
@@ -404,7 +383,7 @@ function Operaciones() {
   );
 
   const table = useReactTable({
-    data: jobs,
+    data: filteredByExtra,
     columns,
     state: { sorting, globalFilter, columnFilters, columnVisibility, expanded },
     onSortingChange: setSorting,
@@ -426,33 +405,30 @@ function Operaciones() {
       return [
         jobLlave(j), j.oc, j.bdpJob, j.proveedor, j.cliente, j.material, j.codigoSap,
         j.posicion, j.responsable, j.centro, j.incoterms, j.invoice, j.doNum,
-      ]
-        .filter(Boolean)
-        .some((x) => String(x).toLowerCase().includes(v));
+        j.gerencia, j.campo, j.comprador, j.solicitante, j.descripcionMaterial,
+      ].filter(Boolean).some((x) => String(x).toLowerCase().includes(v));
     },
-    initialState: { pagination: { pageSize: 25 } },
+    initialState: { pagination: { pageSize: 50 } },
   });
 
   const filteredJobs = table.getFilteredRowModel().rows.map((r) => r.original);
 
   const handleExport = () => {
-    if (filteredJobs.length === 0) {
-      toast.error("No hay órdenes para exportar");
-      return;
-    }
-    exportJobsToExcel(filteredJobs, `ordenes-compra-${new Date().toISOString().slice(0, 10)}.xlsx`);
-    toast.success(`${filteredJobs.length} órdenes exportadas`);
+    if (filteredJobs.length === 0) { toast.error("No hay líneas para exportar"); return; }
+    exportJobsToExcel(filteredJobs, `operaciones-lineas-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`${filteredJobs.length} líneas exportadas`);
   };
 
   const confirmDelete = () => {
     if (!toDelete) return;
     deleteJob(toDelete.id);
-    toast.success(`${toDelete.oc || toDelete.bdpJob} eliminado`);
+    toast.success(`Línea ${jobLlave(toDelete)} eliminada`);
     setToDelete(null);
   };
 
   const statusFilter = (table.getColumn("status")?.getFilterValue() as string[]) ?? [];
   const priorityFilter = (table.getColumn("prioridad")?.getFilterValue() as string[]) ?? [];
+  const lineStatusFilter = (table.getColumn("lineStatus")?.getFilterValue() as string[]) ?? [];
 
   const toggleArrayFilter = (colId: string, current: string[], value: string) => {
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
@@ -462,104 +438,93 @@ function Operaciones() {
   const clearFilters = () => {
     setColumnFilters([]);
     setGlobalFilter("");
+    setFGerencia("");
+    setFCampo("");
+    setFTipoCompra("");
+    setFProveedor("");
   };
 
-  const activeFilters = columnFilters.length + (globalFilter ? 1 : 0);
+  const activeFilters = columnFilters.length + (globalFilter ? 1 : 0) +
+    (fGerencia ? 1 : 0) + (fCampo ? 1 : 0) + (fTipoCompra ? 1 : 0) + (fProveedor ? 1 : 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gradient">Órdenes de Compra</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Operaciones · Líneas</h1>
           <p className="text-sm text-muted-foreground">
-            Centro de control operativo — {filteredJobs.length} de {jobs.length} órdenes
+            Control operativo por línea (OC + posición) — {filteredJobs.length} de {filteredByExtra.length} líneas
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
             <Download className="h-4 w-4" /> Exportar
           </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" /> Nueva OC
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Nueva línea
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <KpiCard label="Órdenes activas" value={kpis.total} icon={<Activity className="h-4 w-4" />} tone="info" />
-        <KpiCard label="Con retraso" value={kpis.delayed} icon={<AlertTriangle className="h-4 w-4" />} tone="warning" />
-        <KpiCard label="Críticas" value={kpis.critical} icon={<Flame className="h-4 w-4" />} tone="destructive" />
-        <KpiCard label="A tiempo" value={kpis.onTime} tone="success" />
-        <KpiCard label="Cumplimiento" value={`${kpis.compliance}%`} tone="primary" />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+        <KpiCard label="Total líneas" value={kpis.total} icon={<Package className="h-4 w-4" />} tone="info" />
+        <KpiCard label="Entregadas" value={kpis.entregadas} icon={<CheckCircle2 className="h-4 w-4" />} tone="success" />
+        <KpiCard label="Parciales" value={kpis.parciales} icon={<Activity className="h-4 w-4" />} tone="primary" />
+        <KpiCard label="Pendientes" value={kpis.pendientes} icon={<Clock className="h-4 w-4" />} tone="warning" />
+        <KpiCard label="Vencidas" value={kpis.vencidas} icon={<AlertTriangle className="h-4 w-4" />} tone="destructive" />
+        <KpiCard label="USD Pendiente" value={fmtMoney(kpis.usdPendiente, "USD")} icon={<Wallet className="h-4 w-4" />} tone="warning" />
+        <KpiCard label="USD Total" value={fmtMoney(kpis.usdTotal, "USD")} icon={<Wallet className="h-4 w-4" />} tone="primary" />
       </div>
 
       {/* Toolbar */}
       <div className="surface-elevated rounded-xl border border-border">
-        <div className="p-4 border-b border-border flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Buscar LLAVE, OC, SAP, proveedor, material, responsable, DO, invoice…"
-              className="w-full h-9 pl-9 pr-3 rounded-md bg-muted/40 border border-transparent text-sm focus:outline-none focus:border-ring focus:bg-background transition"
-            />
-          </div>
-
-          <FilterDropdown
-            label="Estado"
-            options={allStatuses}
-            selected={statusFilter}
-            onToggle={(v) => toggleArrayFilter("status", statusFilter, v)}
-          />
-          <FilterDropdown
-            label="Prioridad"
-            options={allPriorities}
-            selected={priorityFilter}
-            onToggle={(v) => toggleArrayFilter("prioridad", priorityFilter, v)}
-          />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings2 className="h-4 w-4" /> Columnas
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>Mostrar columnas</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table.getAllLeafColumns()
-                .filter((c) => c.getCanHide())
-                .map((c) => (
-                  <DropdownMenuCheckboxItem
-                    key={c.id}
-                    checked={c.getIsVisible()}
-                    onCheckedChange={(v) => c.toggleVisibility(!!v)}
-                    className="capitalize"
-                  >
+        <div className="p-4 border-b border-border space-y-3">
+          {/* Row 1: Search + column dropdowns */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[260px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)}
+                placeholder="Buscar LLAVE, OC, proveedor, material, responsable, gerencia, campo…"
+                className="w-full h-9 pl-9 pr-3 rounded-md bg-muted/40 border border-transparent text-sm focus:outline-none focus:border-ring focus:bg-background transition" />
+            </div>
+            <FilterDropdown label="Estado Línea" options={[...allLineStatuses]} selected={lineStatusFilter}
+              onToggle={(v) => toggleArrayFilter("lineStatus", lineStatusFilter, v)} />
+            <FilterDropdown label="Status" options={allStatuses} selected={statusFilter}
+              onToggle={(v) => toggleArrayFilter("status", statusFilter, v)} />
+            <FilterDropdown label="Prioridad" options={allPriorities} selected={priorityFilter}
+              onToggle={(v) => toggleArrayFilter("prioridad", priorityFilter, v)} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2"><Settings2 className="h-4 w-4" /> Columnas</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel>Mostrar columnas</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table.getAllLeafColumns().filter((c) => c.getCanHide()).map((c) => (
+                  <DropdownMenuCheckboxItem key={c.id} checked={c.getIsVisible()}
+                    onCheckedChange={(v) => c.toggleVisibility(!!v)} className="capitalize text-xs">
                     {c.id}
                   </DropdownMenuCheckboxItem>
                 ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-          {activeFilters > 0 && (
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center gap-1 px-2 h-8 text-xs rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-3 w-3" /> Limpiar ({activeFilters})
-            </button>
-          )}
+          {/* Row 2: Additional filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <SelectFilter label="Gerencia" value={fGerencia} onChange={setFGerencia} options={gerencias} />
+            <SelectFilter label="Campo" value={fCampo} onChange={setFCampo} options={campos} />
+            <SelectFilter label="Tipo Compra" value={fTipoCompra} onChange={setFTipoCompra} options={[...allTipoCompra]} />
+            <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedores} />
+            {activeFilters > 0 && (
+              <button onClick={clearFilters}
+                className="inline-flex items-center gap-1 px-2 h-8 text-xs rounded-md text-destructive hover:bg-destructive/10">
+                <X className="h-3 w-3" /> Limpiar ({activeFilters})
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -572,28 +537,17 @@ function Operaciones() {
                     const canSort = h.column.getCanSort();
                     const sort = h.column.getIsSorted();
                     return (
-                      <th
-                        key={h.id}
-                        className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide whitespace-nowrap"
-                        style={{ width: h.column.columnDef.size }}
-                      >
+                      <th key={h.id} className="px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide whitespace-nowrap"
+                        style={{ width: h.column.columnDef.size }}>
                         {h.isPlaceholder ? null : canSort ? (
-                          <button
-                            onClick={h.column.getToggleSortingHandler()}
-                            className="inline-flex items-center gap-1 hover:text-foreground transition"
-                          >
+                          <button onClick={h.column.getToggleSortingHandler()}
+                            className="inline-flex items-center gap-1 hover:text-foreground transition">
                             {flexRender(h.column.columnDef.header, h.getContext())}
-                            {sort === "asc" ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : sort === "desc" ? (
-                              <ArrowDown className="h-3 w-3" />
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-40" />
-                            )}
+                            {sort === "asc" ? <ArrowUp className="h-3 w-3" /> :
+                              sort === "desc" ? <ArrowDown className="h-3 w-3" /> :
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />}
                           </button>
-                        ) : (
-                          flexRender(h.column.columnDef.header, h.getContext())
-                        )}
+                        ) : flexRender(h.column.columnDef.header, h.getContext())}
                       </th>
                     );
                   })}
@@ -605,7 +559,7 @@ function Operaciones() {
                 <Fragment key={row.id}>
                   <tr className="border-b border-border/60 hover:bg-muted/20 transition">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-3 py-2.5 align-middle whitespace-nowrap">
+                      <td key={cell.id} className="px-3 py-2 align-middle whitespace-nowrap">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -614,11 +568,9 @@ function Operaciones() {
                 </Fragment>
               ))}
               {table.getRowModel().rows.length === 0 && (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                    No se encontraron órdenes con esos filtros.
-                  </td>
-                </tr>
+                <tr><td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                  No se encontraron líneas con esos filtros.
+                </td></tr>
               )}
             </tbody>
           </table>
@@ -628,36 +580,20 @@ function Operaciones() {
         <div className="p-3 border-t border-border flex items-center justify-between flex-wrap gap-3">
           <div className="text-xs text-muted-foreground">
             Página {table.getState().pagination.pageIndex + 1} de {Math.max(1, table.getPageCount())} ·{" "}
-            {table.getFilteredRowModel().rows.length} resultados
+            {table.getFilteredRowModel().rows.length} líneas
           </div>
           <div className="flex items-center gap-2">
-            <select
-              value={table.getState().pagination.pageSize}
+            <select value={table.getState().pagination.pageSize}
               onChange={(e) => table.setPageSize(Number(e.target.value))}
-              className="h-8 px-2 rounded-md bg-muted/40 border border-border text-xs"
-            >
-              {[10, 25, 50, 100, 200].map((s) => (
-                <option key={s} value={s}>
-                  {s} / pág.
-                </option>
-              ))}
+              className="h-8 px-2 rounded-md bg-muted/40 border border-border text-xs">
+              {[25, 50, 100, 200, 500].map((s) => <option key={s} value={s}>{s} / pág.</option>)}
             </select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="outline" size="sm" onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()} className="h-8 w-8 p-0">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="outline" size="sm" onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()} className="h-8 w-8 p-0">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -669,17 +605,15 @@ function Operaciones() {
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar {toDelete?.oc || toDelete?.bdpJob}?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar línea {toDelete ? jobLlave(toDelete) : ""}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. La orden de compra se eliminará del sistema.
+              Esta acción no se puede deshacer. La línea se eliminará del sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -691,45 +625,39 @@ function Operaciones() {
 
 // ============= Sub-components =============
 
-function KpiCard({
-  label,
-  value,
-  icon,
-  tone = "info",
-}: {
-  label: string;
-  value: string | number;
-  icon?: React.ReactNode;
+function KpiCard({ label, value, icon, tone = "info" }: {
+  label: string; value: string | number; icon?: React.ReactNode;
   tone?: "info" | "warning" | "destructive" | "success" | "primary";
 }) {
   const toneClass = {
-    info: "text-info",
-    warning: "text-warning",
-    destructive: "text-destructive",
-    success: "text-success",
-    primary: "text-foreground",
+    info: "text-info", warning: "text-warning", destructive: "text-destructive",
+    success: "text-success", primary: "text-foreground",
   }[tone];
   return (
     <div className="surface-elevated rounded-xl border border-border p-4 relative overflow-hidden">
       <div className="flex items-start justify-between">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
+        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
         {icon && <span className={`${toneClass} opacity-70`}>{icon}</span>}
       </div>
-      <div className={`mt-2 text-2xl font-semibold tabular ${toneClass}`}>{value}</div>
+      <div className={`mt-2 text-xl font-semibold tabular ${toneClass}`}>{value}</div>
     </div>
   );
 }
 
-function FilterDropdown({
-  label,
-  options,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  options: readonly string[];
-  selected: string[];
-  onToggle: (v: string) => void;
+function SelectFilter({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[];
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}
+      className="h-8 px-2 rounded-md border border-border bg-card text-xs text-foreground min-w-[120px]">
+      <option value="">{label}: Todos</option>
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function FilterDropdown({ label, options, selected, onToggle }: {
+  label: string; options: readonly string[]; selected: string[]; onToggle: (v: string) => void;
 }) {
   return (
     <DropdownMenu>
@@ -748,11 +676,7 @@ function FilterDropdown({
         <DropdownMenuLabel>Filtrar por {label.toLowerCase()}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {options.map((o) => (
-          <DropdownMenuCheckboxItem
-            key={o}
-            checked={selected.includes(o)}
-            onCheckedChange={() => onToggle(o)}
-          >
+          <DropdownMenuCheckboxItem key={o} checked={selected.includes(o)} onCheckedChange={() => onToggle(o)}>
             {o}
           </DropdownMenuCheckboxItem>
         ))}
@@ -763,18 +687,36 @@ function FilterDropdown({
 
 function ExpandedRow({ job, colSpan }: { job: Job; colSpan: number }) {
   const fields: { label: string; value: React.ReactNode }[] = [
-    { label: "Incoterms", value: job.incoterms || "—" },
+    { label: "Descripción Material", value: job.descripcionMaterial || job.material || "—" },
+    { label: "Código SAP", value: job.codigoSap || "—" },
+    { label: "Incoterms", value: `${job.incoterms || "—"} ${job.descripcionIncoterms || ""}`.trim() },
     { label: "Modalidad", value: job.modalidadImpo || job.modo || "—" },
-    { label: "Lugar de llegada", value: job.lugarLlegada || job.destino || "—" },
+    { label: "Lugar llegada", value: job.lugarLlegada || job.destino || "—" },
+    { label: "País origen", value: job.paisOrigen || "—" },
     { label: "ETD origen", value: job.etdOrigen || "—" },
     { label: "ETA puerto", value: job.etaPuerto || "—" },
     { label: "ETA campo", value: job.etaCampo || job.eta || "—" },
-    { label: "Entrega contractual", value: job.fechaEntregaContractual || "—" },
+    { label: "Fecha compromiso", value: job.fechaCompromiso || job.fechaEntregaContractual || "—" },
+    { label: "Fecha recepción", value: job.fechaRecepcion || "—" },
+    { label: "Fecha orden", value: job.fechaOrden || "—" },
+    { label: "Carrier / Naviera", value: job.naviera || job.carrier || "—" },
+    { label: "Forwarder", value: job.forwarder || "—" },
+    { label: "BL", value: job.bl || "—" },
+    { label: "AWB", value: job.awb || "—" },
+    { label: "Contenedor", value: job.contenedor || "—" },
     { label: "DO", value: job.doNum || "—" },
     { label: "Invoice", value: job.invoice || "—" },
+    { label: "Comprador", value: job.comprador || "—" },
+    { label: "Solicitante", value: job.solicitante || "—" },
+    { label: "Sociedad", value: job.sociedad || "—" },
+    { label: "AFE / Proyecto", value: job.afeProyecto || "—" },
+    { label: "Valor Unit. USD", value: job.valorUnitUsd ? fmtMoney(Number(job.valorUnitUsd), "USD") : "—" },
+    { label: "Valor Total USD", value: job.valorTotalUsd ? fmtMoney(Number(job.valorTotalUsd), "USD") : "—" },
     { label: "Aging", value: `${computeAging(job)}d` },
     { label: "Motivo retraso", value: job.motivoRetraso || "—" },
-    { label: "Criterio", value: job.criterioRetraso || "—" },
+    { label: "Criterio retraso", value: job.criterioRetraso || "—" },
+    { label: "Categoría seguimiento", value: job.categoriaSeguimiento || "—" },
+    { label: "Fecha seguimiento", value: job.fechaSeguimiento || "—" },
   ];
   return (
     <tr className="bg-muted/10 border-b border-border/60">
@@ -787,14 +729,8 @@ function ExpandedRow({ job, colSpan }: { job: Job; colSpan: number }) {
             </div>
           ))}
         </div>
-        {job.asuntoCorreo && (
-          <div className="mt-3 pt-3 border-t border-border/60">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80">Asunto correo</div>
-            <div className="text-xs text-foreground mt-0.5">{job.asuntoCorreo}</div>
-          </div>
-        )}
         {job.observaciones && (
-          <div className="mt-2">
+          <div className="mt-3 pt-3 border-t border-border/60">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80">Observaciones</div>
             <div className="text-xs text-muted-foreground mt-0.5">{job.observaciones}</div>
           </div>
