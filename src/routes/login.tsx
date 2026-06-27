@@ -154,8 +154,8 @@ function Login() {
         <div className="w-full max-w-sm">
           {/* Logo (visible en mobile donde no se ve el panel izquierdo) */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
-              <Ship className="h-6 w-6" />
+            <div className="h-11 w-11 rounded-xl overflow-hidden shadow-lg">
+              <img src="/favicon.svg" alt="LogiControl" className="h-11 w-11" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">LogiControl</h1>

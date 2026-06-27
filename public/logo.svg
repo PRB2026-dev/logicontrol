@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#0f172a"/>
+  <!-- Inner gradient circle -->
+  <circle cx="256" cy="256" r="230" fill="url(#bg-grad)"/>
+  <!-- Ship hull -->
+  <path d="M128 320 L140 360 L372 360 L384 320 L360 260 L152 260Z" fill="#334155" stroke="#475569" stroke-width="2"/>
+  <rect x="148" y="256" width="216" height="8" fill="#475569" rx="3"/>
+  <!-- Containers row 1 -->
+  <rect x="160" y="210" width="44" height="44" fill="#3b82f6" rx="4" stroke="#60a5fa" stroke-width="1"/>
+  <rect x="210" y="210" width="44" height="44" fill="#ef4444" rx="4" stroke="#f87171" stroke-width="1"/>
+  <rect x="260" y="210" width="44" height="44" fill="#10b981" rx="4" stroke="#34d399" stroke-width="1"/>
+  <rect x="310" y="210" width="44" height="44" fill="#f59e0b" rx="4" stroke="#fbbf24" stroke-width="1"/>
+  <!-- Containers row 2 -->
+  <rect x="185" y="162" width="44" height="44" fill="#0ea5e9" rx="4" stroke="#38bdf8" stroke-width="1"/>
+  <rect x="235" y="162" width="44" height="44" fill="#8b5cf6" rx="4" stroke="#a78bfa" stroke-width="1"/>
+  <rect x="285" y="162" width="44" height="44" fill="#ec4899" rx="4" stroke="#f472b6" stroke-width="1"/>
+  <!-- Container row 3 (top) -->
+  <rect x="210" y="116" width="44" height="42" fill="#6366f1" rx="4" stroke="#818cf8" stroke-width="1"/>
+  <rect x="260" y="116" width="44" height="42" fill="#14b8a6" rx="4" stroke="#2dd4bf" stroke-width="1"/>
+  <!-- Bridge cabin -->
+  <rect x="356" y="210" width="28" height="50" fill="#1e293b" stroke="#475569" stroke-width="1.5" rx="4"/>
+  <rect x="360" y="218" width="9" height="7" fill="#38bdf8" rx="1.5" opacity="0.8"/>
+  <rect x="372" y="218" width="9" height="7" fill="#38bdf8" rx="1.5" opacity="0.8"/>
+  <!-- Water waves -->
+  <path d="M80 370 Q130 358 180 370 Q230 382 280 370 Q330 358 380 370 Q430 382 440 370" stroke="#38bdf8" stroke-width="3" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <path d="M100 388 Q150 376 200 388 Q250 400 300 388 Q350 376 400 388 Q430 396 440 388" stroke="#38bdf8" stroke-width="2.5" fill="none" opacity="0.25" stroke-linecap="round"/>
+  <!-- Arrow / tracking indicator -->
+  <circle cx="380" cy="140" r="28" fill="#3b82f6" opacity="0.2" stroke="#60a5fa" stroke-width="1.5"/>
+  <path d="M370 140 L380 130 L390 140 M380 130 L380 152" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <radialGradient id="bg-grad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+</svg>

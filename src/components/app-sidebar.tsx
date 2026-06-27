@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Ship, FileText, Bell, Settings, Upload, Briefcase, TrendingUp, Users, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Package, FileText, Bell, Settings, Upload, Briefcase, TrendingUp, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyRole } from "@/lib/use-role";
 
@@ -22,8 +22,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <div className="h-16 flex items-center gap-2 px-5 border-b border-sidebar-border">
-        <div className="h-9 w-9 rounded-md bg-sidebar-accent flex items-center justify-center">
-          <Ship className="h-5 w-5" />
+        <div className="h-9 w-9 rounded-md overflow-hidden flex items-center justify-center">
+          <img src="/favicon.svg" alt="LogiControl" className="h-9 w-9" />
         </div>
         <div>
           <div className="font-semibold tracking-tight">LogiControl</div>
