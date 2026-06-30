@@ -158,16 +158,16 @@ function Operaciones() {
         ),
       },
       { accessorKey: "posicion", header: "Pos.", cell: ({ row }) => <span className="text-xs">{row.original.posicion || "—"}</span> },
-      { accessorKey: "codigoSap", header: "SAP" },
       {
         accessorKey: "proveedor",
         header: "Proveedor",
         cell: ({ row }) => (
-          <div className="max-w-[180px] truncate text-xs" title={row.original.proveedor || row.original.cliente}>
+          <div className="max-w-[180px] truncate text-xs font-medium" title={row.original.proveedor || row.original.cliente}>
             {row.original.proveedor || row.original.cliente || "—"}
           </div>
         ),
       },
+      { accessorKey: "codigoSap", header: "SAP" },
       {
         accessorKey: "material",
         header: "Material",

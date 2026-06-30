@@ -77,6 +77,7 @@ function rowToJob(r: Row): Job {
     assets: s(r.assets) || null,
     gerencia: s(r.gerencia) || null,
     campo: s(r.campo) || null,
+    equipo: s(r.equipo) || null,
     customer: s(r.customer) || null,
     comprador: s(r.comprador) || null,
     solicitante: s(r.solicitante) || null,
@@ -187,6 +188,7 @@ function jobToRow(j: Partial<Job>): Row {
   set("assets", j.assets);
   set("gerencia", j.gerencia);
   set("campo", j.campo);
+  set("equipo", j.equipo);
   set("customer", j.customer);
   set("comprador", j.comprador);
   set("descripcion_material", j.descripcionMaterial);

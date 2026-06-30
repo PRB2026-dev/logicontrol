@@ -77,6 +77,7 @@ const ALIASES: Partial<Record<AliasField, string[]>> = {
   assets: ["assets", "activo"],
   gerencia: ["gerencia", "manager"],
   campo: ["campo", "field"],
+  equipo: ["equipo", "team", "grupo equipo", "equipo de trabajo"],
   // Comercial
   customer: ["customer", "cust"],
   comprador: ["comprador", "buyer", "crictividad de la odc comprador", "criticidad de la odc comprador", "cricticidad de la odc comprador", "criticidad de la odc"],
@@ -265,10 +266,11 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   // coinciden con los alias conocidos. BC=54 (Valor OC USD), BF=57 (Estado
   // de entrega), BH=59 (Estado adicional). Solo se asignan si la celda
   // del encabezado existe en esa posición.
-  const COL = { G: 6, K: 10, M: 12, T: 19, AO: 40, BC: 54, BF: 57, BH: 59, BK: 62, BL: 63, BM: 64, BN: 65, BY: 76, CE: 82, CO: 92, CP: 93 } as const;
+  const COL = { G: 6, K: 10, M: 12, Q: 16, T: 19, AO: 40, BC: 54, BF: 57, BH: 59, BK: 62, BL: 63, BM: 64, BN: 65, BY: 76, CE: 82, CO: 92, CP: 93 } as const;
   if (map.cuenta === undefined && headers.length > COL.G) map.cuenta = COL.G;
   if (map.gerencia === undefined && headers.length > COL.K) map.gerencia = COL.K;
   if (map.campo === undefined && headers.length > COL.M) map.campo = COL.M;
+  if (map.equipo === undefined && headers.length > COL.Q) map.equipo = COL.Q;
   if (map.oc === undefined && headers.length > COL.T) map.oc = COL.T;
   if (map.qty === undefined && headers.length > COL.AO) map.qty = COL.AO;
   if (map.valorTotalUsd === undefined && headers.length > COL.BC) map.valorTotalUsd = COL.BC;
@@ -420,6 +422,7 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
       assets: String(get("assets") ?? "").trim() || null,
       gerencia: String(get("gerencia") ?? "").trim() || null,
       campo: String(get("campo") ?? "").trim() || null,
+      equipo: String(get("equipo") ?? "").trim() || null,
       // Comercial
       customer: String(get("customer") ?? "").trim() || null,
       comprador: String(get("comprador") ?? "").trim() || null,

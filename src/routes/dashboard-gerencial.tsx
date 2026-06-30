@@ -176,6 +176,7 @@ function DashboardGerencial() {
   const [fSemaforoKey, setFSemaforoKey] = useState<SemaforoKey | "">("");
   const [fProveedor, setFProveedor] = useState("");
   const [fCategoria, setFCategoria] = useState("");
+  const [fEquipo, setFEquipo] = useState("");
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -187,6 +188,7 @@ function DashboardGerencial() {
   const cuentasOpt = useMemo(() => opt(rawJobs.map((j) => j.cuenta)), [rawJobs]);
   const proveedoresOpt = useMemo(() => opt(rawJobs.map((j) => j.proveedor)), [rawJobs]);
   const categoriasOpt = useMemo(() => opt(rawJobs.map((j) => j.categoriaSeguimiento)), [rawJobs]);
+  const equiposOpt = useMemo(() => opt(rawJobs.map((j) => j.equipo)), [rawJobs]);
 
   const semestresOpt = useMemo(() => {
     const s = Array.from(new Set(rawJobs.map((j) => {
@@ -242,6 +244,7 @@ function DashboardGerencial() {
     if (fCuenta && (j.cuenta ?? "").trim() !== fCuenta) return false;
     if (fProveedor && (j.proveedor ?? "").trim() !== fProveedor) return false;
     if (fCategoria && (j.categoriaSeguimiento ?? "").trim() !== fCategoria) return false;
+    if (fEquipo && (j.equipo ?? "").trim() !== fEquipo) return false;
     if (fGestionOperativa) {
       const by = norm(j.categoriaSeguimiento);
       if (fGestionOperativa === "FRONTERA" && by !== "revision administrativa") return false;
@@ -252,7 +255,7 @@ function DashboardGerencial() {
     }
     if (fSemaforoKey && getSemaforoKey(j.diasIncumplimiento ?? 0) !== fSemaforoKey) return false;
     return true;
-  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fProveedor, fCategoria, fGestionOperativa, fEstados, fSemaforoKey]);
+  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fProveedor, fCategoria, fEquipo, fGestionOperativa, fEstados, fSemaforoKey]);
 
   const lineas = useMemo(() => filtered, [filtered]);
 
@@ -799,6 +802,7 @@ function DashboardGerencial() {
           <Sel label="Campo" value={fCampo} onChange={setFCampo} options={camposOpt} />
           <Sel label="Cuenta" value={fCuenta} onChange={setFCuenta} options={cuentasOpt} />
           <Sel label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedoresOpt} />
+          <Sel label="Equipo" value={fEquipo} onChange={setFEquipo} options={equiposOpt} />
           <MultiStateFilter label="Estado" selected={fEstados} onChange={setFEstados} options={estadosOpt} counts={estadoCounts} />
         </div>
       </div>

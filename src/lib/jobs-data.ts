@@ -72,6 +72,7 @@ export interface Job {
   assets?: string | null;
   gerencia?: string | null;
   campo?: string | null;
+  equipo?: string | null;
   // === Comercial ===
   customer?: string | null;
   comprador?: string | null;
