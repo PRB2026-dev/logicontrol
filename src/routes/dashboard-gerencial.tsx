@@ -880,7 +880,11 @@ function DashboardGerencial() {
               <h3 className="text-sm font-semibold text-foreground mb-3">Top 5 proveedores · Líneas (entregadas / pendientes)</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={proveedoresData.chartData.slice(0, 5).map(d => ({ ...d, name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name }))} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
+                  <BarChart data={proveedoresData.chartData.slice(0, 5).map(d => {
+                    const total = d.entregadas + d.pendientes;
+                    const pctVal = total > 0 ? Math.round((d.entregadas / total) * 100) : 0;
+                    return { ...d, name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name, pct: pctVal };
+                  })} layout="vertical" margin={{ top: 4, right: 70, left: 8, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
@@ -891,7 +895,7 @@ function DashboardGerencial() {
                       <LabelList dataKey="entregadas" position="center" fill="#fff" fontSize={9} fontWeight={600} />
                     </Bar>
                     <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
-                      <LabelList dataKey="pendientes" position="right" fill="var(--foreground)" fontSize={10} fontWeight={500} />
+                      <LabelList dataKey="pct" position="right" fill="var(--foreground)" fontSize={10} fontWeight={700} formatter={(v: number) => `${v}%`} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -906,7 +910,9 @@ function DashboardGerencial() {
                   <BarChart data={proveedoresData.chartData.slice(0, 5).map(d => {
                     const usdRec = lineas.filter(j => (j.proveedor ?? "").trim() === d.name && isEntregado(j)).reduce((s, j) => s + valorRecibidoUsd(j), 0);
                     const usdPend = lineas.filter(j => (j.proveedor ?? "").trim() === d.name).reduce((s, j) => s + valorPendienteUsdFn(j), 0);
-                    return { name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name, recibido: Math.round(usdRec), pendienteUsd: Math.round(usdPend) };
+                    const usdTotal = usdRec + usdPend;
+                    const pctVal = usdTotal > 0 ? Math.round((usdRec / usdTotal) * 100) : 0;
+                    return { name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name, recibido: Math.round(usdRec), pendienteUsd: Math.round(usdPend), pct: pctVal };
                   })} layout="vertical" margin={{ top: 4, right: 70, left: 8, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
@@ -915,7 +921,9 @@ function DashboardGerencial() {
                       formatter={(v: number, name: string) => [fmtMoney(v, "USD"), name === "recibido" ? "Recibido" : "Pendiente"]} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                     <Bar dataKey="recibido" name="Recibido" stackId="a" fill="#10b981" barSize={20} />
-                    <Bar dataKey="pendienteUsd" name="Pendiente" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
+                    <Bar dataKey="pendienteUsd" name="Pendiente" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
+                      <LabelList dataKey="pct" position="right" fill="var(--foreground)" fontSize={10} fontWeight={700} formatter={(v: number) => `${v}%`} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
