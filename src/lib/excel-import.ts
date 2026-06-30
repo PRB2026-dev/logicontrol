@@ -486,17 +486,11 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
       controlIncumplimiento: String(get("controlIncumplimiento") ?? "").trim() || null,
       anio: (() => {
         const v = get("anio") !== undefined ? (Number(parseNum(get("anio"))) || null) : null;
-        if (v) return v;
-        const refDate = parseDate(get("fechaOrden")) ?? fechaCreacion;
-        const d = new Date(refDate);
-        return isNaN(d.getTime()) ? null : d.getUTCFullYear();
+        return v;
       })(),
       mes: (() => {
         const v = get("mes") !== undefined ? (Number(parseNum(get("mes"))) || null) : null;
-        if (v) return v;
-        const refDate = parseDate(get("fechaOrden")) ?? fechaCreacion;
-        const d = new Date(refDate);
-        return isNaN(d.getTime()) ? null : d.getUTCMonth() + 1;
+        return v;
       })(),
     });
   }
