@@ -656,37 +656,57 @@ function DashboardGerencial() {
     { name: "BDP",      lineas: gestionOperativa.bdp.lineas,      usd: gestionOperativa.bdp.usd,      pct: gestionOperativa.bdp.pctLineas,      fill: "#f59e0b" },
   ], [gestionOperativa]);
 
-  // ─── Seguimiento Últimos 7 Días ──────────────────────────────────────────────
+  // ─── Seguimiento Últimos 14 Días Hábiles ────────────────────────────────────
   const TODAY = useMemo(() => new Date(), []);
+
+  /** Calcula días hábiles entre una fecha y hoy (excluye sáb, dom y festivos Colombia 2026) */
+  const diasHabilesDesde = (fecha: string | null | undefined): number => {
+    if (!fecha) return 9999;
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return 9999;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    if (d >= hoy) return 0;
+    // Festivos Colombia 2026 (principales)
+    const festivos = new Set([
+      "2026-01-01", "2026-01-12", "2026-03-23", "2026-04-02", "2026-04-03",
+      "2026-05-01", "2026-05-18", "2026-06-08", "2026-06-15", "2026-06-29",
+      "2026-07-20", "2026-08-07", "2026-08-17", "2026-10-12", "2026-11-02",
+      "2026-11-16", "2026-12-08", "2026-12-25",
+    ]);
+    let count = 0;
+    const current = new Date(d);
+    current.setDate(current.getDate() + 1);
+    while (current <= hoy) {
+      const day = current.getDay();
+      const iso = current.toISOString().slice(0, 10);
+      if (day !== 0 && day !== 6 && !festivos.has(iso)) count++;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  };
+
   const seguimientoData = useMemo(() => {
     let seguidas = 0, sinSeguimiento = 0;
     for (const j of lineasPendAtrasadas) {
-      const fecha = j.fechaSeguimiento;
-      if (fecha) {
-        const diff = Math.floor((TODAY.getTime() - new Date(fecha).getTime()) / 86400000);
-        if (diff <= 7) seguidas++;
-        else sinSeguimiento++;
-      } else {
-        sinSeguimiento++;
-      }
+      const diasHabiles = diasHabilesDesde(j.fechaSeguimiento);
+      if (diasHabiles <= 14) seguidas++;
+      else sinSeguimiento++;
     }
     const total = seguidas + sinSeguimiento || 1;
     const pct = Math.round((seguidas / total) * 100);
     return { seguidas, sinSeguimiento, total: seguidas + sinSeguimiento, pct };
   }, [lineasPendAtrasadas, TODAY]);
 
-  const semaforo7Dias = seguimientoData.pct >= 80 ? { color: "#22c55e", label: "Óptimo" }
+  const semaforo14Dias = seguimientoData.pct >= 80 ? { color: "#22c55e", label: "Óptimo" }
     : seguimientoData.pct >= 60 ? { color: "#eab308", label: "Alerta" }
     : { color: "#ef4444", label: "Crítico" };
 
   // Líneas sin seguimiento — detalle para alerta
   const lineasSinSeguimiento = useMemo(() =>
     lineasPendAtrasadas
-      .filter((j) => {
-        const f = j.fechaSeguimiento;
-        if (!f) return true;
-        return Math.floor((TODAY.getTime() - new Date(f).getTime()) / 86400000) > 7;
-      })
+      .filter((j) => diasHabilesDesde(j.fechaSeguimiento) > 14)
       .map((j) => {
         const diasSinGestion = j.fechaSeguimiento
           ? Math.floor((TODAY.getTime() - new Date(j.fechaSeguimiento).getTime()) / 86400000)
@@ -1132,8 +1152,8 @@ function DashboardGerencial() {
         </Card>
       </Section>
 
-      {/* SEGUIMIENTO ÚLTIMOS 7 DÍAS */}
-      <Section title="Seguimiento Últimos 7 Días · Líneas pendientes con gestión reciente">
+      {/* SEGUIMIENTO Últimos 14 D�as H�biÍAS */}
+      <Section title="Seguimiento Últimos 14 D�as H�biías · Líneas pendientes con gestión reciente">
         <div className="bg-card border border-border rounded-lg p-5">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -1160,23 +1180,23 @@ function DashboardGerencial() {
                       innerRadius={54} outerRadius={72}
                       stroke="none" paddingAngle={0}
                     >
-                      <Cell fill={semaforo7Dias.color} />
+                      <Cell fill={semaforo14Dias.color} />
                       <Cell fill="transparent" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 {/* texto central superpuesto */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 12 }}>
-                  <span className="text-3xl font-bold tabular-nums" style={{ color: semaforo7Dias.color }}>
+                  <span className="text-3xl font-bold tabular-nums" style={{ color: semaforo14Dias.color }}>
                     {seguimientoData.pct}%
                   </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: semaforo7Dias.color }}>
-                    {semaforo7Dias.label}
+                  <span className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: semaforo14Dias.color }}>
+                    {semaforo14Dias.label}
                   </span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center leading-tight">
-                % de líneas pendientes<br />gestionadas en los últimos 7 días
+                % de líneas pendientes<br />gestionadas en los últimos 14 D�as H�biías
               </p>
               {/* escala semáforo */}
               <div className="flex gap-2 text-[10px]">
