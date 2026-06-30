@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, FileText, Bell, Settings, Upload, Briefcase, TrendingUp, Users, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Package, Ship, FileText, Bell, Settings, Upload, Briefcase, TrendingUp, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyRole } from "@/lib/use-role";
 
@@ -8,6 +8,7 @@ const nav = [
   { to: "/dashboard-gerencial", label: "Dashboard Gerencial", icon: BarChart3 },
   { to: "/casos", label: "Órdenes de Compra", icon: Briefcase },
   { to: "/operaciones", label: "Operaciones", icon: Package },
+  { to: "/importaciones", label: "Importaciones", icon: Ship },
   { to: "/proyecciones", label: "Proyecciones", icon: TrendingUp },
   { to: "/importar", label: "Importar Excel", icon: Upload },
   { to: "/reportes", label: "Reportes", icon: FileText },

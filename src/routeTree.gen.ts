@@ -15,6 +15,7 @@ import { Route as ProyeccionesRouteImport } from './routes/proyecciones'
 import { Route as OperacionesRouteImport } from './routes/operaciones'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ImportarRouteImport } from './routes/importar'
+import { Route as ImportacionesRouteImport } from './routes/importaciones'
 import { Route as DashboardGerencialRouteImport } from './routes/dashboard-gerencial'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as CasosRouteImport } from './routes/casos'
@@ -50,6 +51,11 @@ const LoginRoute = LoginRouteImport.update({
 const ImportarRoute = ImportarRouteImport.update({
   id: '/importar',
   path: '/importar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportacionesRoute = ImportacionesRouteImport.update({
+  id: '/importaciones',
+  path: '/importaciones',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardGerencialRoute = DashboardGerencialRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/casos': typeof CasosRoute
   '/configuracion': typeof ConfiguracionRoute
   '/dashboard-gerencial': typeof DashboardGerencialRoute
+  '/importaciones': typeof ImportacionesRoute
   '/importar': typeof ImportarRoute
   '/login': typeof LoginRoute
   '/operaciones': typeof OperacionesRouteWithChildren
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/casos': typeof CasosRoute
   '/configuracion': typeof ConfiguracionRoute
   '/dashboard-gerencial': typeof DashboardGerencialRoute
+  '/importaciones': typeof ImportacionesRoute
   '/importar': typeof ImportarRoute
   '/login': typeof LoginRoute
   '/operaciones': typeof OperacionesRouteWithChildren
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/casos': typeof CasosRoute
   '/configuracion': typeof ConfiguracionRoute
   '/dashboard-gerencial': typeof DashboardGerencialRoute
+  '/importaciones': typeof ImportacionesRoute
   '/importar': typeof ImportarRoute
   '/login': typeof LoginRoute
   '/operaciones': typeof OperacionesRouteWithChildren
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/casos'
     | '/configuracion'
     | '/dashboard-gerencial'
+    | '/importaciones'
     | '/importar'
     | '/login'
     | '/operaciones'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/casos'
     | '/configuracion'
     | '/dashboard-gerencial'
+    | '/importaciones'
     | '/importar'
     | '/login'
     | '/operaciones'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/casos'
     | '/configuracion'
     | '/dashboard-gerencial'
+    | '/importaciones'
     | '/importar'
     | '/login'
     | '/operaciones'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   CasosRoute: typeof CasosRoute
   ConfiguracionRoute: typeof ConfiguracionRoute
   DashboardGerencialRoute: typeof DashboardGerencialRoute
+  ImportacionesRoute: typeof ImportacionesRoute
   ImportarRoute: typeof ImportarRoute
   LoginRoute: typeof LoginRoute
   OperacionesRoute: typeof OperacionesRouteWithChildren
@@ -227,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/importar'
       fullPath: '/importar'
       preLoaderRoute: typeof ImportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/importaciones': {
+      id: '/importaciones'
+      path: '/importaciones'
+      fullPath: '/importaciones'
+      preLoaderRoute: typeof ImportacionesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard-gerencial': {
@@ -292,6 +312,7 @@ const rootRouteChildren: RootRouteChildren = {
   CasosRoute: CasosRoute,
   ConfiguracionRoute: ConfiguracionRoute,
   DashboardGerencialRoute: DashboardGerencialRoute,
+  ImportacionesRoute: ImportacionesRoute,
   ImportarRoute: ImportarRoute,
   LoginRoute: LoginRoute,
   OperacionesRoute: OperacionesRouteWithChildren,
