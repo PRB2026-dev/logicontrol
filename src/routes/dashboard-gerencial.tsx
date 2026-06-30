@@ -153,7 +153,9 @@ function semaforoBK(bk: number | null) {
 }
 
 function DashboardGerencial() {
-  const rawJobs = useJobsStore((s) => s.jobs);
+  const allStoreJobs = useJobsStore((s) => s.jobs);
+  // Excluir líneas de importación — tienen su propio módulo independiente
+  const rawJobs = useMemo(() => allStoreJobs.filter((j) => (j.tipoCompra ?? "") !== "Importación"), [allStoreJobs]);
 
   // ===== FILTROS =====
   const [fAnio, setFAnio] = useState("");
