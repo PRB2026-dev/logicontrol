@@ -266,7 +266,7 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   // coinciden con los alias conocidos. BC=54 (Valor OC USD), BF=57 (Estado
   // de entrega), BH=59 (Estado adicional). Solo se asignan si la celda
   // del encabezado existe en esa posición.
-  const COL = { G: 6, K: 10, M: 12, Q: 16, T: 19, AO: 40, BC: 54, BF: 57, BH: 59, BK: 62, BL: 63, BM: 64, BN: 65, BY: 76, CE: 82, CO: 92, CP: 93 } as const;
+  const COL = { G: 6, K: 10, M: 12, Q: 16, T: 19, AL: 37, AM: 38, AO: 40, BC: 54, BF: 57, BH: 59, BK: 62, BL: 63, BM: 64, BN: 65, BY: 76, CE: 82, CO: 92, CP: 93 } as const;
   if (map.cuenta === undefined && headers.length > COL.G) map.cuenta = COL.G;
   if (map.gerencia === undefined && headers.length > COL.K) map.gerencia = COL.K;
   if (map.campo === undefined && headers.length > COL.M) map.campo = COL.M;
@@ -284,8 +284,8 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   if (map.detalleStatus === undefined && headers.length > 77) map.detalleStatus = 77;
   if (map.statusGeneral === undefined && headers.length > 78) map.statusGeneral = 78;
   if (map.fechaSeguimiento === undefined && headers.length > COL.CE) map.fechaSeguimiento = COL.CE;
-  if (map.anio === undefined && headers.length > COL.CO) map.anio = COL.CO;
-  if (map.mes === undefined && headers.length > COL.CP) map.mes = COL.CP;
+  if (map.anio === undefined && headers.length > COL.AL) map.anio = COL.AL;
+  if (map.mes === undefined && headers.length > COL.AM) map.mes = COL.AM;
 
   // Detección inteligente de la columna BF (Estado Entrega):
   // Escanea todas las columnas buscando la que tenga ≥50% de sus valores

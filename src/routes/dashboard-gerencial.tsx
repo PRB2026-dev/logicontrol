@@ -66,22 +66,14 @@ function cumplOf(j: Job): Cumpl {
 function trimestre(mes: number): number { return Math.ceil(mes / 3); }
 function semestre(mes: number): number { return mes <= 6 ? 1 : 2; }
 
-/** Derivar año desde columna CO o, como fallback, desde fechaOrden / fechaCreacion */
+/** Año desde columna CO — sin fallback para coincidir con el filtro del Excel */
 function deriveAnio(j: Job): number | null {
-  if (j.anio) return j.anio;
-  const ref = j.fechaOrden ?? j.fechaCreacion ?? null;
-  if (!ref) return null;
-  const d = new Date(ref);
-  return isNaN(d.getTime()) ? null : d.getUTCFullYear();
+  return j.anio ?? null;
 }
 
-/** Derivar mes (1-12) desde columna CP o, como fallback, desde fechaOrden / fechaCreacion */
+/** Mes desde columna CP — sin fallback */
 function deriveMes(j: Job): number | null {
-  if (j.mes) return j.mes;
-  const ref = j.fechaOrden ?? j.fechaCreacion ?? null;
-  if (!ref) return null;
-  const d = new Date(ref);
-  return isNaN(d.getTime()) ? null : d.getUTCMonth() + 1;
+  return j.mes ?? null;
 }
 
 // ─── BN / OC helpers ──────────────────────────────────────────────────────────
