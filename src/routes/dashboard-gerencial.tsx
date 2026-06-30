@@ -32,23 +32,16 @@ const P = {
 type EstadoOp = "Entregado" | "Entregado Parcial" | "Sin entrega" | "Borrado";
 function estadoOf(j: Job): EstadoOp {
   const s = norm(j.estadoEntrega);
-  if (s) {
-    if (s === "borrado" || s === "eliminado" || s.startsWith("borr") || s === "baja" || s === "anulado" || s === "cancelado") return "Borrado";
-    if (
-      s.includes("parcial") ||
-      s === "incompleto" ||
-      s === "entrega incompleta" ||
-      s.includes("parcialmente") ||
-      s === "partial" ||
-      s === "entregado parcial" ||
-      s === "entrega parcial"
-    ) return "Entregado Parcial";
-    if (s === "entregado" || s === "delivered" || s === "completo" || s === "completado") return "Entregado";
-    if (s.includes("entregado") && !s.includes("parcial")) return "Entregado";
-    if (s === "sin entrega" || s === "sin entregar" || s === "pendiente" || s === "no entregado") return "Sin entrega";
-    return "Sin entrega";
-  }
-  // Sin campo BF: clasificar como Sin entrega (NO usar BH para determinar estado)
+  if (s === "borrado") return "Borrado";
+  if (s === "entrega parcial") return "Entregado Parcial";
+  if (s === "entregado") return "Entregado";
+  if (s === "sin entrega") return "Sin entrega";
+  // Fallback para variantes
+  if (s.startsWith("borr") || s === "baja" || s === "anulado" || s === "cancelado" || s === "eliminado") return "Borrado";
+  if (s.includes("parcial")) return "Entregado Parcial";
+  if (s.includes("entregado") || s === "delivered" || s === "completo" || s === "completado") return "Entregado";
+  if (s === "sin entregar" || s === "pendiente" || s === "no entregado") return "Sin entrega";
+  if (!s) return "Sin entrega";
   return "Sin entrega";
 }
 
@@ -215,9 +208,9 @@ function DashboardGerencial() {
 
   const filtered = useMemo(() => rawJobs.filter((j) => {
     const anio = deriveAnio(j);
-    if (fAnio && String(anio ?? "") !== fAnio) return false;
+    if (fAnio && anio !== Number(fAnio)) return false;
     const m = deriveMes(j) ?? 0;
-    if (fMes && String(m) !== fMes) return false;
+    if (fMes && m !== Number(fMes)) return false;
     if (fSemestre && m > 0 && String(semestre(m)) !== fSemestre) return false;
     if (fTrimestre && m > 0 && String(trimestre(m)) !== fTrimestre) return false;
     if (fGerencia && (j.gerencia ?? "").trim() !== fGerencia) return false;
