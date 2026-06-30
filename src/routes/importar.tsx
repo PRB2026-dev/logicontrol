@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, RotateCcw, Trash2, ArrowRight } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, RotateCcw, Trash2, ArrowRight, Ship } from "lucide-react";
 import { parseRowsToJobs, type ParseResult } from "@/lib/excel-import";
 import { useJobsStore } from "@/lib/jobs-store";
 import { statusColors } from "@/lib/jobs-data";
@@ -84,10 +84,15 @@ function Importar() {
 
   const confirmImport = async () => {
     if (!result) return;
-    toast.info(`Subiendo ${result.jobs.length} registros a la nube...`);
-    const { insertedCount, errors } = await addJobs(result.jobs, fileName);
+    // Si la hoja seleccionada es "Importaciones", marcar todas las líneas como importación
+    const isImpoSheet = selectedSheet.toLowerCase().trim() === "importaciones";
+    const jobsToImport = isImpoSheet
+      ? result.jobs.map(j => ({ ...j, tipoCompra: "Importación" as const }))
+      : result.jobs;
+    toast.info(`Subiendo ${jobsToImport.length} registros a la nube...`);
+    const { insertedCount, errors } = await addJobs(jobsToImport, fileName);
     if (insertedCount > 0 && errors.length === 0) {
-      toast.success(`${insertedCount} registros importados correctamente`);
+      toast.success(`${insertedCount} registros importados correctamente${isImpoSheet ? " (marcados como Importación)" : ""}`);
     } else if (insertedCount > 0) {
       toast.success(`${insertedCount} registros importados correctamente`);
       toast.error(`Hubo ${errors.length} error(es) al insertar algunos registros.`);
@@ -210,6 +215,12 @@ function Importar() {
               </button>
             ))}
           </div>
+          {selectedSheet.toLowerCase().trim() === "importaciones" && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-info bg-info/10 border border-info/20 rounded-md px-3 py-2">
+              <Ship className="h-4 w-4" />
+              Las líneas de esta hoja se marcarán automáticamente como <strong>Importación</strong> y aparecerán en el módulo Importaciones.
+            </div>
+          )}
         </div>
       )}
 
