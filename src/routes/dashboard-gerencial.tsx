@@ -43,16 +43,8 @@ function estadoOf(j: Job): EstadoOp {
       s === "entregado parcial" ||
       s === "entrega parcial"
     ) return "Entregado Parcial";
-    if (s === "entregado" || s === "delivered" || s === "completo" || s === "completado") {
-      const q = Number(j.qty ?? 0); const e = Number(j.qtyEntregada ?? 0);
-      if (q > 0 && e > 0 && e < q) return "Entregado Parcial";
-      return "Entregado";
-    }
-    if (s.includes("entregado") && !s.includes("parcial")) {
-      const q = Number(j.qty ?? 0); const e = Number(j.qtyEntregada ?? 0);
-      if (q > 0 && e > 0 && e < q) return "Entregado Parcial";
-      return "Entregado";
-    }
+    if (s === "entregado" || s === "delivered" || s === "completo" || s === "completado") return "Entregado";
+    if (s.includes("entregado") && !s.includes("parcial")) return "Entregado";
     if (s === "sin entrega" || s === "sin entregar" || s === "pendiente" || s === "no entregado") return "Sin entrega";
     return "Sin entrega";
   }
