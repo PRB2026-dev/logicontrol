@@ -171,7 +171,7 @@ function DashboardGerencial() {
   const [fProveedor, setFProveedor] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fEquipo, setFEquipo] = useState("");
-  const [fLiberacion, setFLiberacion] = useState("");
+  const [fLiberacion, setFLiberacion] = useState<string[]>([]);
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -240,11 +240,15 @@ function DashboardGerencial() {
     if (fProveedor && (j.proveedor ?? "").trim() !== fProveedor) return false;
     if (fCategoria && (j.categoriaSeguimiento ?? "").trim() !== fCategoria) return false;
     if (fEquipo && (j.equipo ?? "").trim() !== fEquipo) return false;
-    if (fLiberacion) {
+    if (fLiberacion.length > 0) {
       const bh = norm(j.estadoAdicional);
-      if (fLiberacion.startsWith("0") && bh !== "0") return false;
-      if (fLiberacion.startsWith("L") && bh !== "l") return false;
-      if (fLiberacion.startsWith("B") && bh !== "b") return false;
+      const match = fLiberacion.some(f => {
+        if (f.startsWith("0")) return bh === "0";
+        if (f.startsWith("L")) return bh === "l";
+        if (f.startsWith("B")) return bh === "b";
+        return false;
+      });
+      if (!match) return false;
     }
     if (fGestionOperativa) {
       const by = norm(j.categoriaSeguimiento);
@@ -804,7 +808,8 @@ function DashboardGerencial() {
           <Sel label="Cuenta" value={fCuenta} onChange={setFCuenta} options={cuentasOpt} />
           <Sel label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedoresOpt} />
           <Sel label="Equipo" value={fEquipo} onChange={setFEquipo} options={equiposOpt} />
-          <Sel label="Liberación (BH)" value={fLiberacion} onChange={setFLiberacion} options={["0 - Activas", "L - Liberadas", "B - Bloqueadas"]} />
+          <MultiStateFilter label="Liberación" selected={fLiberacion} onChange={setFLiberacion}
+            options={["0 - Activas", "L - Liberadas", "B - Bloqueadas"]} />
           <MultiStateFilter label="Estado" selected={fEstados} onChange={setFEstados} options={estadosOpt} counts={estadoCounts} />
         </div>
       </div>
