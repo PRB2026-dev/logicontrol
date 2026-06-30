@@ -48,13 +48,7 @@ function estadoOf(j: Job): EstadoOp {
     if (s === "sin entrega" || s === "sin entregar" || s === "pendiente" || s === "no entregado") return "Sin entrega";
     return "Sin entrega";
   }
-  const aa = norm(j.estadoAdicional);
-  if (aa === "b") return "Borrado";
-  const ls = norm(j.status);
-  if (ls === "borrado" || ls.startsWith("borr") || ls === "baja" || ls === "anulado" || ls === "cancelado") return "Borrado";
-  if (ls.includes("parcial") || ls === "incompleto" || ls === "entrega incompleta") return "Entregado Parcial";
-  if (ls === "entregado" || ls === "cerrado" || ls === "facturado" || ls === "completo") return "Entregado";
-  if (ls === "sin entrega" || ls === "sin entregar") return "Sin entrega";
+  // Sin campo BF: clasificar como Sin entrega (NO usar BH para determinar estado)
   return "Sin entrega";
 }
 
