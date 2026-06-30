@@ -248,9 +248,9 @@ function DashboardGerencial() {
     if (fEquipo && (j.equipo ?? "").trim() !== fEquipo) return false;
     if (fLiberacion) {
       const bh = norm(j.estadoAdicional);
-      if (fLiberacion === "0" && bh !== "0") return false;
-      if (fLiberacion === "L" && bh !== "l") return false;
-      if (fLiberacion === "B" && bh !== "b") return false;
+      if (fLiberacion.startsWith("0") && bh !== "0") return false;
+      if (fLiberacion.startsWith("L") && bh !== "l") return false;
+      if (fLiberacion.startsWith("B") && bh !== "b") return false;
     }
     if (fGestionOperativa) {
       const by = norm(j.categoriaSeguimiento);
@@ -810,36 +810,7 @@ function DashboardGerencial() {
           <Sel label="Cuenta" value={fCuenta} onChange={setFCuenta} options={cuentasOpt} />
           <Sel label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedoresOpt} />
           <Sel label="Equipo" value={fEquipo} onChange={setFEquipo} options={equiposOpt} />
-          {/* Liberación BH — pills interactivas */}
-          {(() => {
-            const bhC = { "0": 0, l: 0, b: 0 };
-            for (const j of rawJobs) { const bh = norm(j.estadoAdicional); if (bh === "0") bhC["0"]++; else if (bh === "l") bhC.l++; else if (bh === "b") bhC.b++; }
-            const items: { value: string; label: string; count: number; color: string }[] = [
-              { value: "0", label: "Activas", count: bhC["0"], color: "#3b82f6" },
-              { value: "L", label: "Liberadas", count: bhC.l, color: "#10b981" },
-              { value: "B", label: "Bloqueadas", count: bhC.b, color: "#ef4444" },
-            ];
-            return (
-              <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-muted/20">
-                {items.map((it) => {
-                  const active = fLiberacion === it.value;
-                  return (
-                    <button key={it.value} type="button"
-                      onClick={() => setFLiberacion(active ? "" : it.value)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-semibold transition-all ${active ? "shadow-sm" : "opacity-70 hover:opacity-100"}`}
-                      style={{ backgroundColor: active ? `${it.color}20` : "transparent", color: it.color, border: active ? `1px solid ${it.color}40` : "1px solid transparent" }}>
-                      {it.label}
-                      <span className="tabular-nums font-bold">{it.count.toLocaleString()}</span>
-                    </button>
-                  );
-                })}
-                {fLiberacion && (
-                  <button type="button" onClick={() => setFLiberacion("")}
-                    className="ml-1 text-[10px] text-muted-foreground hover:text-foreground px-1">✕</button>
-                )}
-              </div>
-            );
-          })()}
+          <Sel label="Liberación (BH)" value={fLiberacion} onChange={setFLiberacion} options={["0 - Activas", "L - Liberadas", "B - Bloqueadas"]} />
           <MultiStateFilter label="Estado" selected={fEstados} onChange={setFEstados} options={estadosOpt} counts={estadoCounts} />
         </div>
       </div>
