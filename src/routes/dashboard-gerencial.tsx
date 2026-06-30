@@ -177,6 +177,7 @@ function DashboardGerencial() {
   const [fProveedor, setFProveedor] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fEquipo, setFEquipo] = useState("");
+  const [showLiberacion, setShowLiberacion] = useState(true);
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -852,6 +853,54 @@ function DashboardGerencial() {
         </div>
       </Section>
 
+      {/* INDICADORES DE LIBERACIÓN (BH) */}
+      <Section title="Indicadores de Liberación (BH)">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Distribución de líneas por estado adicional (columna BH)</p>
+            <button type="button" onClick={() => setShowLiberacion(!showLiberacion)}
+              className="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted transition-colors">
+              {showLiberacion ? "Ocultar" : "Mostrar"}
+            </button>
+          </div>
+          {showLiberacion && (() => {
+            const bhCounts = { activas: 0, liberadas: 0, bloqueadas: 0, sinDato: 0 };
+            for (const j of rawJobs) {
+              const bh = norm(j.estadoAdicional);
+              if (bh === "0") bhCounts.activas++;
+              else if (bh === "l") bhCounts.liberadas++;
+              else if (bh === "b") bhCounts.bloqueadas++;
+              else bhCounts.sinDato++;
+            }
+            const total = rawJobs.length || 1;
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Activas (0)</div>
+                  <div className="text-2xl font-bold text-info mt-1">{bhCounts.activas.toLocaleString()}</div>
+                  <div className="text-[11px] text-info">{Math.round((bhCounts.activas / total) * 100)}%</div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Liberadas (L)</div>
+                  <div className="text-2xl font-bold text-success mt-1">{bhCounts.liberadas.toLocaleString()}</div>
+                  <div className="text-[11px] text-success">{Math.round((bhCounts.liberadas / total) * 100)}%</div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Bloqueadas (B)</div>
+                  <div className="text-2xl font-bold text-destructive mt-1">{bhCounts.bloqueadas.toLocaleString()}</div>
+                  <div className="text-[11px] text-destructive">{Math.round((bhCounts.bloqueadas / total) * 100)}%</div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Sin dato</div>
+                  <div className="text-2xl font-bold text-muted-foreground mt-1">{bhCounts.sinDato.toLocaleString()}</div>
+                  <div className="text-[11px] text-muted-foreground">{Math.round((bhCounts.sinDato / total) * 100)}%</div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </Section>
+
       {/* MÓDULO PROVEEDORES — reemplaza Unidades */}
       <Section title="Proveedores · Análisis por líneas">
         <div className="space-y-4">
@@ -907,10 +956,70 @@ function DashboardGerencial() {
               </div>
             </div>
           </div>
+
+          {/* Tabla ranking top 10 proveedores */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Ranking Top 10 · Cumplimiento por proveedor</h3>
+              <p className="text-[11px] text-muted-foreground">Total USD, líneas entregadas a tiempo / con retraso, % cumplimiento</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground border-b border-border bg-muted/30">
+                    <th className="py-2 px-3">#</th>
+                    <th className="py-2 px-3">Proveedor</th>
+                    <th className="py-2 px-3 text-right">Líneas</th>
+                    <th className="py-2 px-3 text-right">USD Total</th>
+                    <th className="py-2 px-3 text-right">A tiempo</th>
+                    <th className="py-2 px-3 text-right">Retraso</th>
+                    <th className="py-2 px-3 text-right">Pendientes</th>
+                    <th className="py-2 px-3">Cumplimiento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proveedoresData.chartData.slice(0, 10).map((p, i) => {
+                    const full = [...(function() {
+                      const map = new Map<string, { atiempo: number; tarde: number; pendientes: number; usd: number }>();
+                      for (const j of lineas) {
+                        const prov = (j.proveedor ?? "Sin proveedor").trim() || "Sin proveedor";
+                        if (!map.has(prov)) map.set(prov, { atiempo: 0, tarde: 0, pendientes: 0, usd: 0 });
+                        const v = map.get(prov)!;
+                        v.usd += valorCompradoUsd(j);
+                        if (isEntregado(j)) { if ((j.diasIncumplimiento ?? 0) <= 0) v.atiempo++; else v.tarde++; }
+                        else v.pendientes++;
+                      }
+                      return map;
+                    })()].find(([n]) => n === p.name)?.[1] ?? { atiempo: 0, tarde: 0, pendientes: 0, usd: 0 };
+                    const delivered = full.atiempo + full.tarde;
+                    const cumpl = delivered > 0 ? Math.round((full.atiempo / delivered) * 100) : 0;
+                    const cumplColor = cumpl >= 80 ? "#10b981" : cumpl >= 50 ? "#f59e0b" : "#ef4444";
+                    return (
+                      <tr key={p.name} className="border-b border-border/40 hover:bg-muted/20">
+                        <td className="py-2 px-3 font-bold text-muted-foreground">{i + 1}</td>
+                        <td className="py-2 px-3 font-medium text-foreground max-w-[200px] truncate" title={p.name}>{p.name}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{p.lineas}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{fmtMoney(full.usd, "USD")}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-success font-medium">{full.atiempo}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-destructive font-medium">{full.tarde}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-warning font-medium">{full.pendientes}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${cumpl}%`, backgroundColor: cumplColor }} />
+                            </div>
+                            <span className="text-[10px] font-bold tabular-nums" style={{ color: cumplColor }}>{cumpl}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </Section>
-
-      {/* SEMÁFORO BK – 6 grupos por línea */}
       <Section title="Semáforo de Cumplimiento · días de incumplimiento (BK) · por línea">
         <div className="bg-card border border-border rounded-lg p-4">
           {fSemaforoKey && (

@@ -280,6 +280,9 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   if (map.rangoIncumplimientoInformado === undefined && headers.length > COL.BM) map.rangoIncumplimientoInformado = COL.BM;
   if (map.controlIncumplimiento === undefined && headers.length > COL.BN) map.controlIncumplimiento = COL.BN;
   if (map.categoriaSeguimiento === undefined && headers.length > COL.BY) map.categoriaSeguimiento = COL.BY;
+  // BZ (col 77) → detalleStatus, CA (col 78) → statusGeneral — jerarquía de seguimiento
+  if (map.detalleStatus === undefined && headers.length > 77) map.detalleStatus = 77;
+  if (map.statusGeneral === undefined && headers.length > 78) map.statusGeneral = 78;
   if (map.fechaSeguimiento === undefined && headers.length > COL.CE) map.fechaSeguimiento = COL.CE;
   if (map.anio === undefined && headers.length > COL.CO) map.anio = COL.CO;
   if (map.mes === undefined && headers.length > COL.CP) map.mes = COL.CP;
