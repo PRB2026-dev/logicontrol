@@ -25,6 +25,19 @@ const COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"
 const PAGE_SIZE = 25;
 const norm = (v: unknown) => String(v ?? "").toLowerCase().trim();
 
+/** Normaliza modalidad: unifica mayúsculas/minúsculas y acentos */
+function normModalidad(j: Job): string {
+  const raw = (j.modalidadImpo || j.modo || "").trim();
+  if (!raw) return "Sin definir";
+  const lower = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (lower.includes("marit") || lower.includes("sea") || lower.includes("ocean")) return "Marítimo";
+  if (lower.includes("aere") || lower.includes("air")) return "Aéreo";
+  if (lower.includes("terr") || lower.includes("road") || lower.includes("truck") || lower.includes("land")) return "Terrestre";
+  if (lower.includes("multi") || lower.includes("comb")) return "Multimodal";
+  // Capitalizar primera letra
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
 function ImportacionesModule() {
   const allJobs = useJobsStore((s) => s.jobs);
 
@@ -43,7 +56,7 @@ function ImportacionesModule() {
   // Opciones de filtro
   const proveedores = useMemo(() => [...new Set(impoJobs.map(j => (j.proveedor ?? "").trim()).filter(Boolean))].sort(), [impoJobs]);
   const incotermsOpt = useMemo(() => [...new Set(impoJobs.map(j => (j.incoterms ?? "").trim()).filter(Boolean))].sort(), [impoJobs]);
-  const modalidades = useMemo(() => [...new Set(impoJobs.map(j => (j.modalidadImpo || j.modo || "").trim()).filter(Boolean))].sort(), [impoJobs]);
+  const modalidades = useMemo(() => [...new Set(impoJobs.map(j => normModalidad(j)).filter(Boolean))].sort(), [impoJobs]);
   const destinos = useMemo(() => [...new Set(impoJobs.map(j => (j.lugarLlegada || j.destino || "").trim()).filter(Boolean))].sort(), [impoJobs]);
   const estados = ["Pendiente", "Parcial", "Vencido", "Próximo a Vencer", "Entregado"];
 
@@ -57,7 +70,7 @@ function ImportacionesModule() {
     }
     if (fProveedor) result = result.filter(j => (j.proveedor ?? "").trim() === fProveedor);
     if (fIncoterms) result = result.filter(j => (j.incoterms ?? "").trim() === fIncoterms);
-    if (fModalidad) result = result.filter(j => (j.modalidadImpo || j.modo || "").trim() === fModalidad);
+    if (fModalidad) result = result.filter(j => normModalidad(j) === fModalidad);
     if (fDestino) result = result.filter(j => (j.lugarLlegada || j.destino || "").trim() === fDestino);
     if (fEstado) result = result.filter(j => lineStatus(j) === fEstado);
     return result;
@@ -95,7 +108,7 @@ function ImportacionesModule() {
 
   const modalidadChart = useMemo(() => {
     const map = new Map<string, number>();
-    for (const j of filtered) { const m = (j.modalidadImpo || j.modo || "Otro").trim(); map.set(m, (map.get(m) ?? 0) + 1); }
+    for (const j of filtered) { const m = normModalidad(j); map.set(m, (map.get(m) ?? 0) + 1); }
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
   }, [filtered]);
 
@@ -290,7 +303,7 @@ function ImportacionesModule() {
                     <td className="px-3 py-2 max-w-[140px] truncate" title={j.proveedor ?? ""}>{j.proveedor || "—"}</td>
                     <td className="px-3 py-2 text-muted-foreground max-w-[160px] truncate" title={j.material ?? ""}>{j.material || "—"}</td>
                     <td className="px-3 py-2 text-muted-foreground">{j.incoterms || "—"}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{j.modalidadImpo || j.modo || "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{normModalidad(j)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{Number(j.qty ?? 0).toLocaleString()}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-success">{Number(j.qtyEntregada ?? 0).toLocaleString()}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-warning">{pend.toLocaleString()}</td>
