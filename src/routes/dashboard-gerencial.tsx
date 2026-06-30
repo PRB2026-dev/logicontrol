@@ -873,26 +873,9 @@ function DashboardGerencial() {
             <Kpi icon={AlertTriangle} label="Entregadas con retraso"  value={proveedoresData.totalEntregadasTarde.toLocaleString()} tint="destructive"
               sub={`${pct(proveedoresData.totalEntregadasTarde, lineasTotal)}%`} />
           </div>
-          {/* Rankings y gráfico */}
+          {/* Gráficos frente a frente: Líneas | USD */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Rankings */}
-            <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Rankings de proveedores</h3>
-              {[
-                { label: "Mayor nº de líneas",        value: proveedoresData.topLineas,     color: "#6366f1" },
-                { label: "Mayor nº llamados/compromisos", value: proveedoresData.topLlamados, color: "#ef4444" },
-                { label: "Mayor nº líneas pendientes", value: proveedoresData.topPendientes, color: "#f59e0b" },
-                { label: "Mayor nº líneas entregadas", value: proveedoresData.topEntregadas, color: "#10b981" },
-              ].map((r) => (
-                <div key={r.label} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30">
-                  <span className="text-xs text-muted-foreground flex-1">{r.label}</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${r.color}20`, color: r.color }}>
-                    {r.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {/* Gráfico top 8 por líneas */}
+            {/* Gráfico top 5 por líneas */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="text-sm font-semibold text-foreground mb-3">Top 5 proveedores · Líneas (entregadas / pendientes)</h3>
               <div className="h-64">
@@ -910,6 +893,29 @@ function DashboardGerencial() {
                     <Bar dataKey="pendientes" name="Pendientes" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20}>
                       <LabelList dataKey="pendientes" position="right" fill="var(--foreground)" fontSize={10} fontWeight={500} />
                     </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Gráfico top 5 por USD */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Top 5 proveedores · USD (recibido / pendiente)</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={proveedoresData.chartData.slice(0, 5).map(d => {
+                    const usdRec = lineas.filter(j => (j.proveedor ?? "").trim() === d.name && isEntregado(j)).reduce((s, j) => s + valorRecibidoUsd(j), 0);
+                    const usdPend = lineas.filter(j => (j.proveedor ?? "").trim() === d.name).reduce((s, j) => s + valorPendienteUsdFn(j), 0);
+                    return { name: d.name.length > 18 ? d.name.slice(0, 18) + "…" : d.name, recibido: Math.round(usdRec), pendienteUsd: Math.round(usdPend) };
+                  })} layout="vertical" margin={{ top: 4, right: 70, left: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={(v: number, name: string) => [fmtMoney(v, "USD"), name === "recibido" ? "Recibido" : "Pendiente"]} />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                    <Bar dataKey="recibido" name="Recibido" stackId="a" fill="#10b981" barSize={20} />
+                    <Bar dataKey="pendienteUsd" name="Pendiente" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
