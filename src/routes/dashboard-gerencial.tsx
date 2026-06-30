@@ -177,7 +177,7 @@ function DashboardGerencial() {
   const [fProveedor, setFProveedor] = useState("");
   const [fCategoria, setFCategoria] = useState("");
   const [fEquipo, setFEquipo] = useState("");
-  const [showLiberacion, setShowLiberacion] = useState(true);
+  const [fLiberacion, setFLiberacion] = useState("");
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -246,6 +246,12 @@ function DashboardGerencial() {
     if (fProveedor && (j.proveedor ?? "").trim() !== fProveedor) return false;
     if (fCategoria && (j.categoriaSeguimiento ?? "").trim() !== fCategoria) return false;
     if (fEquipo && (j.equipo ?? "").trim() !== fEquipo) return false;
+    if (fLiberacion) {
+      const bh = norm(j.estadoAdicional);
+      if (fLiberacion === "0" && bh !== "0") return false;
+      if (fLiberacion === "L" && bh !== "l") return false;
+      if (fLiberacion === "B" && bh !== "b") return false;
+    }
     if (fGestionOperativa) {
       const by = norm(j.categoriaSeguimiento);
       if (fGestionOperativa === "FRONTERA" && by !== "revision administrativa") return false;
@@ -256,7 +262,7 @@ function DashboardGerencial() {
     }
     if (fSemaforoKey && getSemaforoKey(j.diasIncumplimiento ?? 0) !== fSemaforoKey) return false;
     return true;
-  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fProveedor, fCategoria, fEquipo, fGestionOperativa, fEstados, fSemaforoKey]);
+  }), [rawJobs, fAnio, fMes, fSemestre, fTrimestre, fGerencia, fCampo, fCuenta, fProveedor, fCategoria, fEquipo, fLiberacion, fGestionOperativa, fEstados, fSemaforoKey]);
 
   const lineas = useMemo(() => filtered, [filtered]);
 
@@ -804,6 +810,7 @@ function DashboardGerencial() {
           <Sel label="Cuenta" value={fCuenta} onChange={setFCuenta} options={cuentasOpt} />
           <Sel label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedoresOpt} />
           <Sel label="Equipo" value={fEquipo} onChange={setFEquipo} options={equiposOpt} />
+          <Sel label="Liberación (BH)" value={fLiberacion} onChange={setFLiberacion} options={["0", "L", "B"]} />
           <MultiStateFilter label="Estado" selected={fEstados} onChange={setFEstados} options={estadosOpt} counts={estadoCounts} />
         </div>
       </div>
@@ -850,54 +857,6 @@ function DashboardGerencial() {
           <Kpi icon={PackageMinus}  label="Pendientes"         value={lineasPendientes.toLocaleString()} tint="warning"
             sub={`${pct(lineasPendientes, lineasTotal)}%`}
             onClick={() => setOrClear(["Sin entrega", "Entregado Parcial"])} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
-        </div>
-      </Section>
-
-      {/* INDICADORES DE LIBERACIÓN (BH) */}
-      <Section title="Indicadores de Liberación (BH)">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Distribución de líneas por estado adicional (columna BH)</p>
-            <button type="button" onClick={() => setShowLiberacion(!showLiberacion)}
-              className="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted transition-colors">
-              {showLiberacion ? "Ocultar" : "Mostrar"}
-            </button>
-          </div>
-          {showLiberacion && (() => {
-            const bhCounts = { activas: 0, liberadas: 0, bloqueadas: 0, sinDato: 0 };
-            for (const j of rawJobs) {
-              const bh = norm(j.estadoAdicional);
-              if (bh === "0") bhCounts.activas++;
-              else if (bh === "l") bhCounts.liberadas++;
-              else if (bh === "b") bhCounts.bloqueadas++;
-              else bhCounts.sinDato++;
-            }
-            const total = rawJobs.length || 1;
-            return (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Activas (0)</div>
-                  <div className="text-2xl font-bold text-info mt-1">{bhCounts.activas.toLocaleString()}</div>
-                  <div className="text-[11px] text-info">{Math.round((bhCounts.activas / total) * 100)}%</div>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Liberadas (L)</div>
-                  <div className="text-2xl font-bold text-success mt-1">{bhCounts.liberadas.toLocaleString()}</div>
-                  <div className="text-[11px] text-success">{Math.round((bhCounts.liberadas / total) * 100)}%</div>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Bloqueadas (B)</div>
-                  <div className="text-2xl font-bold text-destructive mt-1">{bhCounts.bloqueadas.toLocaleString()}</div>
-                  <div className="text-[11px] text-destructive">{Math.round((bhCounts.bloqueadas / total) * 100)}%</div>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-[10px] text-muted-foreground uppercase font-medium">Sin dato</div>
-                  <div className="text-2xl font-bold text-muted-foreground mt-1">{bhCounts.sinDato.toLocaleString()}</div>
-                  <div className="text-[11px] text-muted-foreground">{Math.round((bhCounts.sinDato / total) * 100)}%</div>
-                </div>
-              </div>
-            );
-          })()}
         </div>
       </Section>
 
