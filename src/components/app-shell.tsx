@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             </button>
             <button
-              onClick={() => signOut()}
+              onClick={() => { useJobsStore.getState().setJobs([]); signOut(); }}
               className="h-9 w-9 rounded-md hover:bg-muted flex items-center justify-center"
               aria-label="Cerrar sesión"
               title={user.email ?? "Cerrar sesión"}

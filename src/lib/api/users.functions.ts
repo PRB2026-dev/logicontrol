@@ -57,9 +57,10 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     z.object({
-      email: z.string().email("Correo inválido"),
-      password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
-      display_name: z.string().min(1, "El nombre es requerido").max(100),
+      email: z.string().email("Correo inválido").max(254),
+      password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(128),
+      display_name: z.string().min(1, "El nombre es requerido").max(100)
+        .transform(v => v.replace(/[<>'"&]/g, "")),
       role: z.enum(["admin", "operador", "viewer"]),
     }),
   )
@@ -74,7 +75,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { display_name: data.display_name },
     });
-    if (authErr) throw new Error(authErr.message);
+    if (authErr) throw new Error("Error al crear el usuario. Verifique que el correo no esté registrado.");
     const newId = authData.user.id;
 
     // Crear perfil

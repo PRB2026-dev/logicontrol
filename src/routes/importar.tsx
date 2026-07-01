@@ -48,6 +48,19 @@ function Importar() {
   };
 
   const handleFile = async (file: File) => {
+    // Validación de seguridad: tamaño máximo 50MB
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      toast.error("El archivo excede el tamaño máximo permitido (50MB)");
+      return;
+    }
+    // Validación de tipo de archivo
+    const validTypes = [".xlsx", ".xls", ".csv"];
+    const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+    if (!validTypes.includes(ext)) {
+      toast.error("Tipo de archivo no permitido. Use .xlsx, .xls o .csv");
+      return;
+    }
     try {
       setFileName(file.name);
       const buf = await file.arrayBuffer();
