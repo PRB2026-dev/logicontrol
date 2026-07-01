@@ -72,12 +72,14 @@ function Login() {
 
         {/* Content */}
         <div className="relative z-10 text-center max-w-lg">
-          {/* Logo sin fondo blanco + efecto glow */}
-          <div className="mb-6 flex justify-center">
+          {/* Logos: LogiControl + PSA BDP */}
+          <div className="mb-6 flex items-center justify-center gap-4">
             <div className="relative">
               <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl scale-150" />
-              <img src="/logo-main.png" alt="LogiControl" className="relative h-24 w-24 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" style={{ mixBlendMode: "screen" }} />
+              <img src="/logo-main.png" alt="LogiControl" className="relative h-20 w-20 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" style={{ mixBlendMode: "screen" }} />
             </div>
+            <div className="h-12 w-px bg-white/30" />
+            <img src="/logo-bdp.png" alt="PSA BDP" className="h-12 drop-shadow-lg" />
           </div>
 
           <h2 className="text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">LogiControl</h2>
