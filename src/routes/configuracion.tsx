@@ -5,7 +5,7 @@ import { useMyRole, type AppRole } from "@/lib/use-role";
 import { toast } from "sonner";
 import {
   UserPlus, Trash2, Shield, User as UserIcon, Eye,
-  X, Loader2, Users, RefreshCw, Info, Scale, Ship, Code2,
+  X, Loader2, Users, RefreshCw, Info, Scale, Ship, Code2, BookOpen,
 } from "lucide-react";
 import {
   listUsersAdmin, createUserAdmin, updateRoleAdmin, deleteUserAdmin,
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/configuracion")({
 });
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-type TabId = "usuarios" | "acerca" | "legal";
+type TabId = "usuarios" | "manual" | "acerca" | "legal";
 
 const ALL_ROLES: { value: AppRole; label: string }[] = [
   { value: "admin", label: "Administrador" },
@@ -170,6 +170,7 @@ function ConfigPage() {
 
   const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
     ...(isAdmin ? [{ id: "usuarios" as TabId, label: "Usuarios", icon: Users }] : []),
+    { id: "manual", label: "Manual de Usuario", icon: BookOpen },
     { id: "acerca", label: "Acerca de", icon: Info },
     { id: "legal", label: "Legal", icon: Scale },
   ];
@@ -289,6 +290,9 @@ function ConfigPage() {
           </div>
         </div>
       )}
+
+      {/* ═══ TAB: MANUAL DE USUARIO ═══ */}
+      {activeTab === "manual" && <ManualUsuario />}
 
       {/* ═══ TAB: ACERCA DE ═══ */}
       {activeTab === "acerca" && (
@@ -595,6 +599,186 @@ function TechBadge({ name, desc }: { name: string; desc: string }) {
     <div className="bg-muted/30 border border-border rounded-lg p-3">
       <div className="text-sm font-medium text-foreground">{name}</div>
       <div className="text-[11px] text-muted-foreground">{desc}</div>
+    </div>
+  );
+}
+
+
+// ─── Manual de Usuario ────────────────────────────────────────────────────────
+function ManualUsuario() {
+  return (
+    <div className="space-y-6">
+      <Section title="1. Inicio de Sesión">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Para acceder al sistema, ingrese a la URL proporcionada e introduzca su correo y contraseña.</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Si olvidó su contraseña, contacte al administrador para restablecerla.</li>
+            <li>Cada usuario tiene un rol asignado (Administrador, Operador o Visor) que define sus permisos.</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="2. Dashboard Gerencial">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>El Dashboard Gerencial muestra indicadores de las <strong className="text-foreground">órdenes nacionales</strong>. No incluye importaciones.</p>
+          <p className="font-medium text-foreground">Filtros disponibles:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Año</strong> — Filtra por el año de la columna AL del Excel.</li>
+            <li><strong>Semestre / Trimestre / Mes</strong> — Periodos específicos.</li>
+            <li><strong>Gerencia / Campo / Cuenta</strong> — Organizacional.</li>
+            <li><strong>Proveedor</strong> — Filtrar por proveedor específico.</li>
+            <li><strong>Equipo</strong> — Columna Q del Excel.</li>
+            <li><strong>Liberación (BH)</strong> — Multi-selección: 0=Activas, L=Liberadas, B=Bloqueadas.</li>
+            <li><strong>Estado</strong> — Multi-selección: Borrado, Entregado, Entrega Parcial, Sin entrega.</li>
+          </ul>
+          <p className="mt-3 font-medium text-foreground">Secciones del dashboard:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>USD Comprado / Recibido / Pendiente</strong> — Valores económicos totales.</li>
+            <li><strong>Órdenes de Compra</strong> — Conteo por OC y cumplimiento.</li>
+            <li><strong>Líneas</strong> — Total, entregadas, a tiempo, con retraso, pendientes.</li>
+            <li><strong>Cumplimiento</strong> — Distribución pie (anticipado, a tiempo, retrasado, pendiente).</li>
+            <li><strong>Semáforo</strong> — Clasificación por días de incumplimiento.</li>
+            <li><strong>Proveedores</strong> — Top 5 por líneas y USD, ranking de cumplimiento.</li>
+            <li><strong>Seguimiento 14 días hábiles</strong> — Líneas con/sin gestión reciente.</li>
+            <li><strong>Pendientes por Categoría</strong> — Desglose FRONTERA / BDP.</li>
+          </ul>
+          <p className="mt-3 text-xs text-info">Todos los cálculos de días son en días hábiles (lunes a viernes, sin festivos Colombia).</p>
+        </div>
+      </Section>
+
+      <Section title="3. Órdenes de Compra">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Muestra las órdenes agrupadas por número de OC. Cada OC se puede expandir para ver sus líneas.</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Paginación de 25 OC por página.</li>
+            <li>Filtro rápido: Todas, Con pendientes, Completadas.</li>
+            <li>Búsqueda por OC, proveedor, gerencia o campo.</li>
+            <li>Barra de progreso de cumplimiento por OC.</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="4. Operaciones (Líneas)">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Centro de control por <strong className="text-foreground">línea</strong> (LLAVE = OC + Posición). Muestra TODAS las líneas (nacionales + importaciones).</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Tabla con TanStack Table: ordenar, filtrar, paginar.</li>
+            <li>Columnas: LLAVE, OC, Pos, Proveedor, Material, QTY, Estado, Días incumplimiento, USD, etc.</li>
+            <li>Filtros: Gerencia, Campo, Tipo Compra, Proveedor, Estado Línea, Status, Prioridad.</li>
+            <li>Exportar a Excel con los filtros aplicados.</li>
+            <li>Expandir fila para ver detalle completo (fechas, logística, valores).</li>
+            <li>Click en LLAVE para ir al detalle completo de la línea.</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="5. Módulo de Importaciones">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Dashboard independiente para el seguimiento de <strong className="text-foreground">órdenes internacionales</strong>.</p>
+          <p className="font-medium text-foreground">Indicadores propios:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Total líneas, OC, proveedores, entregadas, pendientes, vencidas, USD pendiente.</li>
+            <li>Gráficos: estado de importaciones, modalidad, incoterms, top proveedores.</li>
+          </ul>
+          <p className="font-medium text-foreground mt-3">Filtros:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Proveedor, Incoterms, Modalidad, Destino, Estado.</li>
+          </ul>
+          <p className="font-medium text-foreground mt-3">Tabla:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>LLAVE, OC, Proveedor, Material, Incoterms, Modalidad, QTY, Fechas logísticas (ETD, ETA Puerto, ETA Campo), Estado, USD.</li>
+            <li>Paginación 25 por página, exportar a Excel.</li>
+          </ul>
+          <p className="mt-3 text-xs text-info">Las importaciones NO aparecen en el Dashboard Gerencial. Se gestionan desde este módulo y desde Operaciones.</p>
+        </div>
+      </Section>
+
+      <Section title="6. Importar Excel">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Permite cargar datos desde archivos Excel (.xlsx, .xls).</p>
+          <p className="font-medium text-foreground">Pasos:</p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Arrastre o seleccione su archivo Excel.</li>
+            <li>El sistema detecta las hojas disponibles — seleccione la correcta:
+              <ul className="list-disc pl-5 mt-1">
+                <li><strong>"Data Final"</strong> — Para órdenes nacionales (Dashboard Gerencial).</li>
+                <li><strong>"Importaciones"</strong> — Para órdenes internacionales (Módulo Importaciones).</li>
+              </ul>
+            </li>
+            <li>Revise la vista previa con campos detectados.</li>
+            <li>Click en <strong>"Confirmar e importar"</strong>.</li>
+          </ol>
+          <p className="mt-3 text-xs text-warning">⚠️ Si necesita actualizar los datos, primero use "Vaciar" para limpiar la base y luego reimporte.</p>
+        </div>
+      </Section>
+
+      <Section title="7. Proyecciones">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Muestra las líneas pendientes de entrega organizadas por semana y proveedor.</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Forecast semanal: próximas 8 semanas de entregas esperadas.</li>
+            <li>Top proveedores con más líneas pendientes.</li>
+            <li>Tabla paginada con fecha compromiso, días restantes, estado.</li>
+            <li>Filtro por proveedor y semana.</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="8. Alertas Operativas">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Muestra alertas automáticas solo para <strong className="text-foreground">líneas activas</strong> (Sin entrega + Entrega Parcial).</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Incumplimiento crítico</strong> — Líneas pendientes con más de 30 días de incumplimiento.</li>
+            <li><strong>Sin seguimiento</strong> — Líneas sin gestión en más de 14 días hábiles.</li>
+            <li><strong>SLA vencido</strong> — Líneas con SLA vencido.</li>
+            <li><strong>ETA vencida</strong> — Líneas con ETA pasada sin arribo.</li>
+          </ul>
+          <p className="mt-3 text-xs text-info">Los usuarios no administradores solo ven las alertas de sus líneas (por responsable).</p>
+        </div>
+      </Section>
+
+      <Section title="9. Reportes">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Genera y exporta reportes en formato Excel:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Reporte operativo (todas las operaciones).</li>
+            <li>Reporte por clientes.</li>
+            <li>Reporte mensual.</li>
+            <li>Reporte de demoras (SLA vencido).</li>
+            <li>Reporte de facturación.</li>
+            <li>Reporte de proyecciones.</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="10. Configuración">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <p>Solo accesible para <strong className="text-foreground">administradores</strong>:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Crear, editar y eliminar usuarios.</li>
+            <li>Cambiar roles (Admin, Operador, Visor).</li>
+            <li>Cambiar contraseñas de usuarios.</li>
+          </ul>
+          <p className="mt-3">Todos los usuarios pueden ver: Manual de Usuario, Acerca de, y Legal.</p>
+        </div>
+      </Section>
+
+      <Section title="Glosario">
+        <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><strong className="text-foreground">LLAVE</strong> — Identificador único: OC + Posición.</div>
+            <div><strong className="text-foreground">OC</strong> — Orden de Compra.</div>
+            <div><strong className="text-foreground">BF</strong> — Estado de entrega (Borrado, Entregado, Parcial, Sin entrega).</div>
+            <div><strong className="text-foreground">BH</strong> — Indicador de liberación (0=Activa, L=Liberada, B=Bloqueada).</div>
+            <div><strong className="text-foreground">BC</strong> — Valor total USD de la línea.</div>
+            <div><strong className="text-foreground">ETD</strong> — Fecha estimada de salida (origen).</div>
+            <div><strong className="text-foreground">ETA</strong> — Fecha estimada de llegada.</div>
+            <div><strong className="text-foreground">SLA</strong> — Acuerdo de nivel de servicio.</div>
+            <div><strong className="text-foreground">Días hábiles</strong> — Lunes a viernes, sin festivos Colombia.</div>
+            <div><strong className="text-foreground">FRONTERA / BDP</strong> — Categorías de seguimiento operativo.</div>
+          </div>
+        </div>
+      </Section>
     </div>
   );
 }
