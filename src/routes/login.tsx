@@ -143,64 +143,65 @@ function Login() {
       </div>
 
       {/* ═══ Panel derecho: Formulario ═══ */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-background">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gradient-to-b from-background to-muted/30">
         <div className="w-full max-w-sm">
-          {/* Logo (visible en mobile donde no se ve el panel izquierdo) */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 rounded-xl overflow-hidden shadow-lg">
-              <img src="/logo-main.png" alt="LogiControl" className="h-12 w-12 object-contain" />
+          {/* Logo + branding */}
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-4">
+              <img src="/logo-main.png" alt="LogiControl" className="h-14 w-14 drop-shadow-md" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">LogiControl</h1>
-              <p className="text-xs text-muted-foreground">ERP Operativo Corporativo</p>
-            </div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">LogiControl</h1>
+            <p className="text-xs text-muted-foreground mt-1">Sistema de Gestión Logística</p>
           </div>
 
-          <h2 className="text-lg font-semibold text-foreground mb-1">
-            {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            {mode === "login" ? "Accede a tu panel operativo." : "Regístrate para comenzar."}
-          </p>
+          {/* Card del formulario */}
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
+              {mode === "login" ? "Bienvenido" : "Crear cuenta"}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              {mode === "login" ? "Ingresa tus credenciales para acceder." : "Regístrate para comenzar."}
+            </p>
 
-          <form onSubmit={submit} className="space-y-4">
-            {mode === "signup" && (
+            <form onSubmit={submit} className="space-y-4">
+              {mode === "signup" && (
+                <div>
+                  <label className="text-xs font-medium text-foreground">Nombre</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)}
+                    className="mt-1.5 w-full h-11 px-4 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                    placeholder="Tu nombre" />
+                </div>
+              )}
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Nombre</label>
-                <input value={name} onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  placeholder="Tu nombre" />
+                <label className="text-xs font-medium text-foreground">Correo electrónico</label>
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1.5 w-full h-11 px-4 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  placeholder="tu@empresa.com" />
               </div>
-            )}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Correo electrónico</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="tu@empresa.com" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Contraseña</label>
-              <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="••••••••" />
-            </div>
-            <button type="submit" disabled={busy}
-              className="w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm">
-              {busy ? "Procesando..." : mode === "login" ? "Entrar" : "Crear cuenta"}
-            </button>
-          </form>
+              <div>
+                <label className="text-xs font-medium text-foreground">Contraseña</label>
+                <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1.5 w-full h-11 px-4 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                  placeholder="••••••••" />
+              </div>
+              <button type="submit" disabled={busy}
+                className="w-full h-11 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md hover:shadow-lg">
+                {busy ? "Procesando..." : mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
+              </button>
+            </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "login" ? "¿Sin cuenta?" : "¿Ya tienes cuenta?"}{" "}
-            <button onClick={() => setMode(mode === "login" ? "signup" : "login")}
-              className="text-primary hover:underline font-medium">
-              {mode === "login" ? "Registrarse" : "Iniciar sesión"}
-            </button>
+            <div className="mt-5 text-center text-sm text-muted-foreground">
+              {mode === "login" ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}{" "}
+              <button onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                className="text-primary hover:underline font-semibold">
+                {mode === "login" ? "Registrarse" : "Iniciar sesión"}
+              </button>
+            </div>
           </div>
 
-          {/* Mobile footer */}
-          <div className="mt-10 text-center lg:hidden">
-            <p className="text-[11px] text-muted-foreground">© 2026 LogiControl · Desarrollado por Misael Becerra</p>
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-[10px] text-muted-foreground">© 2026 LogiControl · Desarrollado por Misael Becerra</p>
           </div>
         </div>
       </div>
