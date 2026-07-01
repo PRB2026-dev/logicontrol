@@ -285,7 +285,10 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   if (map.statusGeneral === undefined && headers.length > 78) map.statusGeneral = 78;
   if (map.fechaSeguimiento === undefined && headers.length > COL.CE) map.fechaSeguimiento = COL.CE;
   if (map.anio === undefined && headers.length > COL.AL) map.anio = COL.AL;
+  // Si anio fue mapeado por alias pero apunta a una columna lejana (CO=92), forzar AL
+  if (map.anio !== undefined && map.anio > 50 && headers.length > COL.AL) map.anio = COL.AL;
   if (map.mes === undefined && headers.length > COL.AM) map.mes = COL.AM;
+  if (map.mes !== undefined && map.mes > 50 && headers.length > COL.AM) map.mes = COL.AM;
 
   // Detección inteligente de la columna BF (Estado Entrega):
   // Escanea todas las columnas buscando la que tenga ≥50% de sus valores

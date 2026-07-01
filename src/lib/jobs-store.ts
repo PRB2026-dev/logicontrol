@@ -255,8 +255,6 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
 
   loadFromCloud: async () => {
     set({ loading: true });
-    // Paginar: PostgREST limita por defecto a 1000 filas por request,
-    // así que recorremos en bloques hasta agotar la tabla.
     const pageSize = 1000;
     const all: Row[] = [];
     for (let from = 0; ; from += pageSize) {
@@ -270,9 +268,17 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
       const rows = (data ?? []) as Row[];
       all.push(...rows);
       if (rows.length < pageSize) break;
-      if (all.length > 200000) break; // tope de seguridad
+      if (all.length > 200000) break;
     }
-    set({ jobs: all.map((r) => rowToJob(r)), loading: false });
+    // Deduplicar por id
+    const seen = new Set<string>();
+    const unique: Row[] = [];
+    for (const r of all) {
+      const id = String(r.id);
+      if (!seen.has(id)) { seen.add(id); unique.push(r); }
+    }
+    console.log(`[Store] Loaded ${unique.length} jobs from cloud (${all.length} raw)`);
+    set({ jobs: unique.map((r) => rowToJob(r)), loading: false });
   },
 
   setJobs: (jobs) => set({ jobs }),
