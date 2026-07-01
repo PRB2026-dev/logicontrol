@@ -72,35 +72,63 @@ function Login() {
 
         {/* Content */}
         <div className="relative z-10 text-center max-w-lg">
-          {/* Logo */}
-          <div className="mb-8 flex justify-center">
-            <img src="/logo-main.png" alt="LogiControl" className="h-28 w-28 drop-shadow-2xl" />
+          {/* Logo sin fondo blanco + efecto glow */}
+          <div className="mb-6 flex justify-center">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl scale-150" />
+              <img src="/logo-main.png" alt="LogiControl" className="relative h-24 w-24 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" style={{ mixBlendMode: "screen" }} />
+            </div>
           </div>
 
-          <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">LogiControl</h2>
+          <h2 className="text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">LogiControl</h2>
           
-          <p className="text-lg text-blue-100/90 font-medium mb-3 italic">
+          {/* Línea decorativa animada */}
+          <div className="flex justify-center mb-4">
+            <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-blue-400 to-transparent rounded-full" />
+          </div>
+          
+          <p className="text-lg text-blue-100/90 font-medium mb-3 italic drop-shadow-md">
             Transformando la gestión logística en decisiones inteligentes.
           </p>
           
-          <p className="text-sm text-blue-200/70 leading-relaxed mb-8">
+          <p className="text-sm text-blue-200/70 leading-relaxed mb-8 drop-shadow-sm">
             LogiControl integra información, seguimiento y análisis en una sola plataforma
             para brindar visibilidad completa de cada operación, optimizando la toma de
             decisiones y fortaleciendo la eficiencia en toda la cadena de suministro.
           </p>
 
+          {/* Capacidades del sistema */}
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 text-left">
+              <div className="text-xs font-semibold text-white">Seguimiento por línea</div>
+              <div className="text-[10px] text-blue-200/60 mt-0.5">OC + Posición como unidad</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 text-left">
+              <div className="text-xs font-semibold text-white">Dashboard gerencial</div>
+              <div className="text-[10px] text-blue-200/60 mt-0.5">KPIs, USD, cumplimiento</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 text-left">
+              <div className="text-xs font-semibold text-white">Alertas por responsable</div>
+              <div className="text-[10px] text-blue-200/60 mt-0.5">Incumplimiento y gestión</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 text-left">
+              <div className="text-xs font-semibold text-white">Importaciones</div>
+              <div className="text-[10px] text-blue-200/60 mt-0.5">Módulo independiente</div>
+            </div>
+          </div>
+
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-colors">
               <Ship className="h-3 w-3" /> Tracking en tiempo real
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-colors">
               <TrendingUp className="h-3 w-3" /> Dashboard gerencial
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-colors">
               <Package className="h-3 w-3" /> Control de órdenes
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-colors">
               <Globe2 className="h-3 w-3" /> Importaciones
             </span>
           </div>
