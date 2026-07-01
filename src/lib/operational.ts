@@ -2,11 +2,47 @@ import type { Job, Priority, JobStatus, LineStatus, TipoCompra } from "./jobs-da
 
 const DAY = 86400000;
 
-export function daysBetween(from: string | null | undefined, to: Date = new Date()): number {
+// ─── Festivos Colombia 2025-2026 ─────────────────────────────────────────────
+const FESTIVOS = new Set([
+  // 2025
+  "2025-01-01", "2025-01-06", "2025-03-24", "2025-04-17", "2025-04-18",
+  "2025-05-01", "2025-06-02", "2025-06-23", "2025-06-30", "2025-07-20",
+  "2025-08-07", "2025-08-18", "2025-10-13", "2025-11-03", "2025-11-17",
+  "2025-12-08", "2025-12-25",
+  // 2026
+  "2026-01-01", "2026-01-12", "2026-03-23", "2026-04-02", "2026-04-03",
+  "2026-05-01", "2026-05-18", "2026-06-08", "2026-06-15", "2026-06-29",
+  "2026-07-20", "2026-08-07", "2026-08-17", "2026-10-12", "2026-11-02",
+  "2026-11-16", "2026-12-08", "2026-12-25",
+]);
+
+/** Calcula días HÁBILES entre dos fechas (lun-vie, sin festivos Colombia).
+ *  Retorna positivo si `from` < `to` (retraso), negativo si `from` > `to` (adelantado). */
+export function diasHabiles(from: string | null | undefined, to: Date = new Date()): number {
   if (!from) return 0;
-  const d = new Date(from);
-  if (isNaN(d.getTime())) return 0;
-  return Math.floor((to.getTime() - d.getTime()) / DAY);
+  const start = new Date(from);
+  if (isNaN(start.getTime())) return 0;
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+  if (start.getTime() === end.getTime()) return 0;
+  const signo = end > start ? 1 : -1;
+  const menor = signo === 1 ? start : end;
+  const mayor = signo === 1 ? end : start;
+  let count = 0;
+  const current = new Date(menor);
+  current.setDate(current.getDate() + 1);
+  while (current <= mayor) {
+    const day = current.getDay();
+    const iso = current.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !FESTIVOS.has(iso)) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count * signo;
+}
+
+export function daysBetween(from: string | null | undefined, to: Date = new Date()): number {
+  return diasHabiles(from, to);
 }
 
 // SLA target por prioridad (días)
@@ -74,13 +110,11 @@ export function isCritico(job: Job): boolean {
 export function delayDays(job: Job): number {
   const target = job.fechaEntregaContractual || job.etaCampo || job.eta;
   if (!target) return 0;
-  const t = new Date(target);
-  if (isNaN(t.getTime())) return 0;
   const closed = ["Cerrado", "Facturado", "Entregado"] as JobStatus[];
   const ref = closed.includes(job.status)
     ? new Date(job.factura ?? job.aduana ?? job.ata ?? new Date().toISOString())
     : new Date();
-  return Math.floor((ref.getTime() - t.getTime()) / DAY);
+  return diasHabiles(target, ref);
 }
 
 export type DelayBucket = "A tiempo" | "1-7d" | "8-15d" | "16-30d" | ">30d";
@@ -239,9 +273,7 @@ export function tieneCop(job: Job): boolean {
 export function diasRetraso(job: Job): number {
   const target = job.fechaCompromiso || job.fechaEntregaContractual || job.etaCampo;
   if (!target) return 0;
-  const t = new Date(target);
-  if (isNaN(t.getTime())) return 0;
-  return Math.floor((Date.now() - t.getTime()) / DAY_MS);
+  return diasHabiles(target, new Date());
 }
 
 /** Estado automático de la línea según reglas del documento. */
