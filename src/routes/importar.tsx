@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
@@ -9,6 +9,7 @@ import { statusColors } from "@/lib/jobs-data";
 import { fmtMoney, valorComprado, valorCompradoUsd, valorPendienteCopFn, valorPendienteUsdFn } from "@/lib/operational";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useMyRole } from "@/lib/use-role";
 
 export const Route = createFileRoute("/importar")({
   component: () => (
@@ -24,6 +25,14 @@ const DATA_FINAL_ALIASES = ["data final", "datafinal", "data_final"];
 const PREFERRED_SHEETS = ["Data final", "DATA FINAL", "Data Final", "IMPORTACIONES", "Carga Actualiza", "Operaciones"];
 
 function Importar() {
+  const { role, loading: rl } = useMyRole();
+  if (rl) return <div className="text-sm text-muted-foreground p-6">Cargando...</div>;
+  if (role === "viewer") return <Navigate to="/" />;
+
+  return <ImportarContent />;
+}
+
+function ImportarContent() {
   const [result, setResult] = useState<ParseResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [dragOver, setDragOver] = useState(false);

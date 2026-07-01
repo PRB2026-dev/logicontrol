@@ -10,7 +10,7 @@ const nav = [
   { to: "/operaciones", label: "Operaciones", icon: Package },
   { to: "/importaciones", label: "Importaciones", icon: Ship },
   { to: "/proyecciones", label: "Proyecciones", icon: TrendingUp },
-  { to: "/importar", label: "Importar Excel", icon: Upload },
+  { to: "/importar", label: "Importar Excel", icon: Upload, noViewer: true },
   { to: "/reportes", label: "Reportes", icon: FileText },
   { to: "/alertas", label: "Alertas", icon: Bell },
   { to: "/usuarios", label: "Usuarios", icon: Users, adminOnly: true },
@@ -19,7 +19,8 @@ const nav = [
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { location } = useRouterState();
-  const { isAdmin } = useMyRole();
+  const { isAdmin, role } = useMyRole();
+  const isViewer = role === "viewer";
   return (
     <>
       <div className="h-16 flex items-center gap-2 px-5 border-b border-sidebar-border">
@@ -32,7 +33,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {nav.filter((i) => !("adminOnly" in i) || !i.adminOnly || isAdmin).map((item) => {
+        {nav.filter((i) => {
+          if ("adminOnly" in i && i.adminOnly && !isAdmin) return false;
+          if ("noViewer" in i && i.noViewer && isViewer) return false;
+          return true;
+        }).map((item) => {
           const active = location.pathname === item.to;
           const Icon = item.icon;
           return (
