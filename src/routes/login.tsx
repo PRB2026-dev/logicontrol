@@ -55,89 +55,52 @@ function Login() {
   return (
     <div className="min-h-screen flex">
       {/* ═══ Panel izquierdo: Visual / Branding ═══ */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 items-center justify-center p-12 overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative items-center justify-center p-12 overflow-hidden">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <img src="/login-bg.png" alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-blue-950/60 to-black/80" />
         </div>
 
-        {/* Floating elements */}
-        <div className="absolute top-20 left-16 h-20 w-20 rounded-2xl bg-blue-500/20 backdrop-blur-sm border border-blue-400/20 flex items-center justify-center animate-pulse">
-          <Ship className="h-10 w-10 text-blue-300" />
-        </div>
-        <div className="absolute bottom-32 right-20 h-16 w-16 rounded-xl bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/20 flex items-center justify-center">
-          <TrendingUp className="h-8 w-8 text-emerald-300" />
-        </div>
-        <div className="absolute top-1/3 right-16 h-14 w-14 rounded-xl bg-amber-500/20 backdrop-blur-sm border border-amber-400/20 flex items-center justify-center">
-          <Package className="h-7 w-7 text-amber-300" />
-        </div>
-        <div className="absolute bottom-20 left-24 h-12 w-12 rounded-lg bg-purple-500/20 backdrop-blur-sm border border-purple-400/20 flex items-center justify-center">
-          <Globe2 className="h-6 w-6 text-purple-300" />
+        {/* Animated particles overlay */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-blue-400/40 animate-ping" style={{ animationDuration: "3s" }} />
+          <div className="absolute top-2/3 right-1/3 w-1.5 h-1.5 rounded-full bg-emerald-400/40 animate-ping" style={{ animationDuration: "4s", animationDelay: "1s" }} />
+          <div className="absolute top-1/2 left-2/3 w-2 h-2 rounded-full bg-cyan-400/30 animate-ping" style={{ animationDuration: "5s", animationDelay: "2s" }} />
+          <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 rounded-full bg-blue-300/30 animate-ping" style={{ animationDuration: "3.5s", animationDelay: "0.5s" }} />
         </div>
 
-        {/* Main illustration */}
-        <div className="relative z-10 text-center max-w-md">
-          {/* Container ship SVG illustration */}
-          <div className="mb-8">
-            <svg viewBox="0 0 400 300" className="w-full h-auto max-w-[360px] mx-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Water */}
-              <path d="M0 250 Q50 240 100 250 Q150 260 200 250 Q250 240 300 250 Q350 260 400 250 L400 300 L0 300Z" fill="#1e3a5f" opacity="0.5" />
-              <path d="M0 260 Q50 250 100 260 Q150 270 200 260 Q250 250 300 260 Q350 270 400 260 L400 300 L0 300Z" fill="#1e3a5f" opacity="0.3" />
-              {/* Ship hull */}
-              <path d="M80 220 L90 250 L310 250 L320 220 L300 180 L100 180Z" fill="#334155" stroke="#475569" strokeWidth="1" />
-              <rect x="100" y="180" width="200" height="10" fill="#475569" rx="2" />
-              {/* Containers row 1 */}
-              <rect x="110" y="140" width="35" height="38" fill="#3b82f6" rx="2" stroke="#60a5fa" strokeWidth="0.5" />
-              <rect x="150" y="140" width="35" height="38" fill="#ef4444" rx="2" stroke="#f87171" strokeWidth="0.5" />
-              <rect x="190" y="140" width="35" height="38" fill="#10b981" rx="2" stroke="#34d399" strokeWidth="0.5" />
-              <rect x="230" y="140" width="35" height="38" fill="#f59e0b" rx="2" stroke="#fbbf24" strokeWidth="0.5" />
-              <rect x="270" y="140" width="25" height="38" fill="#8b5cf6" rx="2" stroke="#a78bfa" strokeWidth="0.5" />
-              {/* Containers row 2 */}
-              <rect x="120" y="100" width="35" height="38" fill="#0ea5e9" rx="2" stroke="#38bdf8" strokeWidth="0.5" />
-              <rect x="160" y="100" width="35" height="38" fill="#f97316" rx="2" stroke="#fb923c" strokeWidth="0.5" />
-              <rect x="200" y="100" width="35" height="38" fill="#6366f1" rx="2" stroke="#818cf8" strokeWidth="0.5" />
-              <rect x="240" y="100" width="30" height="38" fill="#14b8a6" rx="2" stroke="#2dd4bf" strokeWidth="0.5" />
-              {/* Containers row 3 */}
-              <rect x="140" y="62" width="35" height="36" fill="#ec4899" rx="2" stroke="#f472b6" strokeWidth="0.5" />
-              <rect x="180" y="62" width="35" height="36" fill="#84cc16" rx="2" stroke="#a3e635" strokeWidth="0.5" />
-              {/* Bridge / cabin */}
-              <rect x="285" y="100" width="30" height="80" fill="#1e293b" stroke="#475569" strokeWidth="1" rx="3" />
-              <rect x="289" y="108" width="10" height="8" fill="#38bdf8" opacity="0.7" rx="1" />
-              <rect x="302" y="108" width="10" height="8" fill="#38bdf8" opacity="0.7" rx="1" />
-              <rect x="289" y="120" width="10" height="8" fill="#fbbf24" opacity="0.5" rx="1" />
-              {/* Crane */}
-              <line x1="130" y1="62" x2="130" y2="30" stroke="#94a3b8" strokeWidth="2" />
-              <line x1="130" y1="30" x2="180" y2="30" stroke="#94a3b8" strokeWidth="2" />
-              <line x1="180" y1="30" x2="180" y2="45" stroke="#64748b" strokeWidth="1" strokeDasharray="3 2" />
-            </svg>
+        {/* Content */}
+        <div className="relative z-10 text-center max-w-lg">
+          {/* Logo */}
+          <div className="mb-8 flex justify-center">
+            <img src="/logo-main.png" alt="LogiControl" className="h-28 w-28 drop-shadow-2xl" />
           </div>
 
-          {/* Text */}
-          <h2 className="text-3xl font-bold text-white mb-3">LogiControl</h2>
-          <p className="text-blue-200/80 text-sm leading-relaxed mb-8">
-            Plataforma centralizada para el control y seguimiento de operaciones
-            de importación, compras y logística empresarial.
+          <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">LogiControl</h2>
+          
+          <p className="text-lg text-blue-100/90 font-medium mb-3 italic">
+            Transformando la gestión logística en decisiones inteligentes.
+          </p>
+          
+          <p className="text-sm text-blue-200/70 leading-relaxed mb-8">
+            LogiControl integra información, seguimiento y análisis en una sola plataforma
+            para brindar visibilidad completa de cada operación, optimizando la toma de
+            decisiones y fortaleciendo la eficiencia en toda la cadena de suministro.
           </p>
 
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-200 border border-blue-400/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
               <Ship className="h-3 w-3" /> Tracking en tiempo real
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-200 border border-emerald-400/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
               <TrendingUp className="h-3 w-3" /> Dashboard gerencial
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-200 border border-amber-400/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
               <Package className="h-3 w-3" /> Control de órdenes
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-200 border border-purple-400/20">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white/90 border border-white/20 backdrop-blur-sm">
               <Globe2 className="h-3 w-3" /> Importaciones
             </span>
           </div>
@@ -145,7 +108,7 @@ function Login() {
 
         {/* Bottom credit */}
         <div className="absolute bottom-6 left-0 right-0 text-center">
-          <p className="text-xs text-blue-300/50">© 2026 LogiControl · Desarrollado por Misael Becerra</p>
+          <p className="text-xs text-white/40">© 2026 LogiControl · Desarrollado por Misael Becerra</p>
         </div>
       </div>
 
@@ -154,8 +117,8 @@ function Login() {
         <div className="w-full max-w-sm">
           {/* Logo (visible en mobile donde no se ve el panel izquierdo) */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="h-11 w-11 rounded-xl overflow-hidden shadow-lg">
-              <img src="/favicon.svg" alt="LogiControl" className="h-11 w-11" />
+            <div className="h-12 w-12 rounded-xl overflow-hidden shadow-lg">
+              <img src="/logo-main.png" alt="LogiControl" className="h-12 w-12 object-contain" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">LogiControl</h1>

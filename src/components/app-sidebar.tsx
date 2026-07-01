@@ -24,7 +24,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <div className="h-16 flex items-center gap-2 px-5 border-b border-sidebar-border">
         <div className="h-9 w-9 rounded-md overflow-hidden flex items-center justify-center">
-          <img src="/favicon.svg" alt="LogiControl" className="h-9 w-9" />
+          <img src="/logo-main.png" alt="LogiControl" className="h-9 w-9 object-contain" />
         </div>
         <div>
           <div className="font-semibold tracking-tight">LogiControl</div>
