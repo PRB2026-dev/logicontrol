@@ -341,10 +341,9 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
     }
 
     if (inserted.length > 0) {
-      set((st) => ({
-        jobs: [...inserted, ...st.jobs],
-        lastImport: { date: new Date().toISOString(), count: inserted.length, fileName },
-      }));
+      // Recargar desde Supabase para tener datos exactos (sin merge local con fallbacks)
+      set({ lastImport: { date: new Date().toISOString(), count: inserted.length, fileName } });
+      await get().loadFromCloud();
     }
     return { insertedCount: inserted.length, errors };
   },
