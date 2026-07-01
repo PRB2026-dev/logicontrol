@@ -257,28 +257,20 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
     set({ loading: true });
     const pageSize = 1000;
     const all: Row[] = [];
-    for (let from = 0; ; from += pageSize) {
-      const to = from + pageSize - 1;
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range(from, to);
+    let lastId: string | null = null;
+    for (;;) {
+      let query = supabase.from("jobs").select("*").order("id").limit(pageSize);
+      if (lastId) query = query.gt("id", lastId);
+      const { data, error } = await query;
       if (error) { console.error(error); set({ loading: false }); return; }
       const rows = (data ?? []) as Row[];
       all.push(...rows);
       if (rows.length < pageSize) break;
+      lastId = String(rows[rows.length - 1].id);
       if (all.length > 200000) break;
     }
-    // Deduplicar por id
-    const seen = new Set<string>();
-    const unique: Row[] = [];
-    for (const r of all) {
-      const id = String(r.id);
-      if (!seen.has(id)) { seen.add(id); unique.push(r); }
-    }
-    console.log(`[Store] Loaded ${unique.length} jobs from cloud (${all.length} raw)`);
-    set({ jobs: unique.map((r) => rowToJob(r)), loading: false });
+    console.log(`[Store] Loaded ${all.length} jobs from cloud`);
+    set({ jobs: all.map((r) => rowToJob(r)), loading: false });
   },
 
   setJobs: (jobs) => set({ jobs }),
