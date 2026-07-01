@@ -77,6 +77,7 @@ function Operaciones() {
     centro: false,
     moneda: false,
     valorPendCop: false,
+    delay: false,
   });
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [formOpen, setFormOpen] = useState(false);

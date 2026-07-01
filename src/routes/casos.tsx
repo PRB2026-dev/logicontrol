@@ -177,7 +177,6 @@ function OrdenesCompra() {
               <th className="py-2.5 px-3 text-right">Pendientes</th>
               <th className="py-2.5 px-3 text-right">USD Comprado</th>
               <th className="py-2.5 px-3 text-right">USD Pendiente</th>
-              <th className="py-2.5 px-3 text-right">Max. Incumpl.</th>
               <th className="py-2.5 px-3" />
             </tr>
           </thead>
@@ -212,11 +211,6 @@ function OrdenesCompra() {
                     <td className="px-3 py-3 text-right tabular-nums text-xs">
                       <span style={{ color: oc.usdPendiente > 0 ? "#ef4444" : "#10b981" }}>{fmtMoney(oc.usdPendiente, "USD")}</span>
                     </td>
-                    <td className="px-3 py-3 text-right tabular-nums">
-                      {oc.diasMaxIncumpl > 0
-                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ backgroundColor: `${urgColor}20`, color: urgColor }}>+{oc.diasMaxIncumpl}d</span>
-                        : <span className="text-emerald-600 text-[10px] font-semibold">A tiempo</span>}
-                    </td>
                     <td className="px-3 py-3">
                       {/* Barra de progreso */}
                       <div className="flex items-center gap-2 min-w-[80px]">
@@ -231,7 +225,7 @@ function OrdenesCompra() {
                   {/* Líneas expandidas */}
                   {isOpen && (
                     <tr key={`${oc.oc}-expanded`} className="bg-muted/5">
-                      <td colSpan={12} className="p-0">
+                      <td colSpan={11} className="p-0">
                         <div className="border-t border-border/40">
                           {/* Header de líneas */}
                           <div className="flex items-center justify-between px-6 py-2 bg-muted/20">
@@ -301,7 +295,7 @@ function OrdenesCompra() {
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">Sin órdenes con esos filtros.</td></tr>
+              <tr><td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">Sin órdenes con esos filtros.</td></tr>
             )}
           </tbody>
         </table>
