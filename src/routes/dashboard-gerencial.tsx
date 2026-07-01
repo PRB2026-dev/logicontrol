@@ -64,9 +64,13 @@ function deriveAnio(j: Job): number | null {
   return j.anio ?? null;
 }
 
-/** Mes desde columna CP — sin fallback */
+/** Mes: desde columna AM, o como fallback desde fechaOrden (para tendencias) */
 function deriveMes(j: Job): number | null {
-  return j.mes ?? null;
+  if (j.mes) return j.mes;
+  const ref = j.fechaOrden ?? j.fechaCompromiso ?? null;
+  if (!ref) return null;
+  const d = new Date(ref);
+  return isNaN(d.getTime()) ? null : d.getUTCMonth() + 1;
 }
 
 // ─── BN / OC helpers ──────────────────────────────────────────────────────────
@@ -1106,7 +1110,8 @@ function DashboardGerencial() {
         </div>
       </Section>
 
-      {/* TENDENCIAS — gráfica unificada USD + Líneas */}
+      {/* TENDENCIAS — oculta temporalmente mientras se resuelve el mes */}
+      {/*
       <Section title="Tendencias Mensuales · USD · Líneas">
         <Card title="USD comprado / recibido / pendiente · Líneas total / entregadas / pendientes" subtitle="Eje izquierdo: USD · Eje derecho: Líneas">
           <div className="h-64">
@@ -1114,43 +1119,22 @@ function DashboardGerencial() {
               <ComposedChart data={tendCombinada} margin={{ top: 4, right: 48, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                {/* Eje Y izquierdo — USD */}
-                <YAxis
-                  yAxisId="usd"
-                  orientation="left"
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                  width={48}
-                />
-                {/* Eje Y derecho — Líneas */}
-                <YAxis
-                  yAxisId="lin"
-                  orientation="right"
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => v.toLocaleString()}
-                  width={40}
-                />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  formatter={(v: number, name: string) => {
-                    const isUsd = ["Comprado", "Recibido", "Pendiente USD"].includes(name);
-                    return [isUsd ? `$${(v / 1000).toFixed(1)}k` : v.toLocaleString(), name];
-                  }}
-                />
+                <YAxis yAxisId="usd" orientation="left" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={48} />
+                <YAxis yAxisId="lin" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v) => v.toLocaleString()} width={40} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => { const isUsd = ["Comprado", "Recibido", "Pendiente USD"].includes(name); return [isUsd ? `$${(v / 1000).toFixed(1)}k` : v.toLocaleString(), name]; }} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                {/* Barras USD (eje izquierdo) */}
-                <Bar yAxisId="usd" dataKey="comprado"   name="Comprado"      fill={P.comprado}  radius={[2, 2, 0, 0]} barSize={6} />
-                <Bar yAxisId="usd" dataKey="recibido"   name="Recibido"      fill={P.recibido}  radius={[2, 2, 0, 0]} barSize={6} />
-                <Bar yAxisId="usd" dataKey="pendiente"  name="Pendiente USD" fill={P.pendiente} radius={[2, 2, 0, 0]} barSize={6} />
-                {/* Líneas (eje derecho) */}
-                <Line yAxisId="lin" type="monotone" dataKey="total"      name="Total líneas"  stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
-                <Line yAxisId="lin" type="monotone" dataKey="entregadas" name="Entregadas"    stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                <Line yAxisId="lin" type="monotone" dataKey="pendientes" name="Pendientes"    stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 3 }} />
+                <Bar yAxisId="usd" dataKey="comprado" name="Comprado" fill={P.comprado} radius={[2, 2, 0, 0]} barSize={6} />
+                <Bar yAxisId="usd" dataKey="recibido" name="Recibido" fill={P.recibido} radius={[2, 2, 0, 0]} barSize={6} />
+                <Bar yAxisId="usd" dataKey="pendiente" name="Pendiente USD" fill={P.pendiente} radius={[2, 2, 0, 0]} barSize={6} />
+                <Line yAxisId="lin" type="monotone" dataKey="total" name="Total líneas" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="lin" type="monotone" dataKey="entregadas" name="Entregadas" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="lin" type="monotone" dataKey="pendientes" name="Pendientes" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </Card>
       </Section>
+      */}
 
       {/* SEGUIMIENTO Últimos 14 D�as H�biÍAS */}
       <Section title="Seguimiento Últimos 14 D�as H�biías · Líneas pendientes con gestión reciente">
