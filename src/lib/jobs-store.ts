@@ -260,7 +260,11 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
     let lastId: string | null = null;
     for (;;) {
       let query = supabase.from("jobs").select("*").order("id").limit(pageSize);
-      if (lastId) query = query.gt("id", lastId);
+      if (lastId) {
+        query = query.gt("id", lastId);
+        // Liberar hilo entre páginas
+        await new Promise((r) => setTimeout(r, 10));
+      }
       const { data, error } = await query;
       if (error) { console.error(error); set({ loading: false }); return; }
       const rows = (data ?? []) as Row[];
@@ -299,6 +303,9 @@ export const useJobsStore = create<JobsState>()((set, get) => ({
     };
 
     for (let i = 0; i < newJobs.length; i += chunkSize) {
+      // Liberar el hilo principal entre chunks para evitar "página no responde"
+      if (i > 0) await new Promise((r) => setTimeout(r, 50));
+
       const chunk = newJobs.slice(i, i + chunkSize);
       const rows = chunk.map((j) => {
         const row = jobToRow(j);
