@@ -68,8 +68,16 @@ function Reportes() {
     const pctCumplimientoANS = lineasSeguimiento.length > 0
       ? Math.round((conSeguimiento / lineasSeguimiento.length) * 100) : 0;
 
-    // 3. Entregas programadas vs cumplidas (fecha entrega CONTRACTUAL en la semana — TODAS las líneas)
-    const todasNoImpo = jobs.filter(j => (j.tipoCompra ?? "") !== "Importación");
+    // 3. Entregas programadas vs cumplidas (fecha entrega CONTRACTUAL en la semana)
+    // Filtro: no importaciones, BH=[0,L], excluir borradas
+    const todasNoImpo = jobs.filter(j => {
+      if ((j.tipoCompra ?? "") === "Importación") return false;
+      const bh = norm(j.estadoAdicional);
+      if (bh !== "0" && bh !== "l") return false;
+      const bf = norm(j.estadoEntrega);
+      if (bf === "borrado" || bf.startsWith("borr")) return false;
+      return true;
+    });
     const programadasSemana = todasNoImpo.filter(j => {
       const fecha = j.fechaEntregaContractual || j.fechaCompromiso;
       if (!fecha) return false;
@@ -211,7 +219,14 @@ function Reportes() {
     }
     const pctANS = lineasSeg.length > 0 ? Math.round((conSeg / lineasSeg.length) * 100) : 0;
 
-    const todasNoImpo = jobs.filter(j => (j.tipoCompra ?? "") !== "Importación");
+    const todasNoImpo = jobs.filter(j => {
+      if ((j.tipoCompra ?? "") === "Importación") return false;
+      const bh = norm(j.estadoAdicional);
+      if (bh !== "0" && bh !== "l") return false;
+      const bf = norm(j.estadoEntrega);
+      if (bf === "borrado" || bf.startsWith("borr")) return false;
+      return true;
+    });
     const programadas = todasNoImpo.filter(j => {
       const fecha = j.fechaEntregaContractual || j.fechaCompromiso;
       if (!fecha) return false;
