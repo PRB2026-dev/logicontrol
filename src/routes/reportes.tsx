@@ -26,7 +26,20 @@ function Reportes() {
   const semanal = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const hace7 = new Date(today.getTime() - 7 * 86400000);
+    
+    // Calcular fecha de hace 7 días HÁBILES (sin sáb, dom, festivos)
+    const FESTIVOS_SET = new Set([
+      "2025-01-01","2025-01-06","2025-03-24","2025-04-17","2025-04-18","2025-05-01","2025-06-02","2025-06-23","2025-06-30","2025-07-20","2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17","2025-12-08","2025-12-25",
+      "2026-01-01","2026-01-12","2026-03-23","2026-04-02","2026-04-03","2026-05-01","2026-05-18","2026-06-08","2026-06-15","2026-06-29","2026-07-20","2026-08-07","2026-08-17","2026-10-12","2026-11-02","2026-11-16","2026-12-08","2026-12-25",
+    ]);
+    let hace7 = new Date(today);
+    let diasHabilesContados = 0;
+    while (diasHabilesContados < 7) {
+      hace7.setDate(hace7.getDate() - 1);
+      const day = hace7.getDay();
+      const iso = hace7.toISOString().slice(0, 10);
+      if (day !== 0 && day !== 6 && !FESTIVOS_SET.has(iso)) diasHabilesContados++;
+    }
 
     // Solo líneas activas: BH=[0,L] + BF=[sin entrega, entrega parcial] + no importaciones
     const activas = jobs.filter(j => {
@@ -55,20 +68,25 @@ function Reportes() {
     const pctCumplimientoANS = lineasSeguimiento.length > 0
       ? Math.round((conSeguimiento / lineasSeguimiento.length) * 100) : 0;
 
-    // 3. Entregas programadas vs cumplidas (fecha contractual en la semana — busca en TODAS las líneas no importaciones)
+    // 3. Entregas programadas vs cumplidas (fecha entrega CONTRACTUAL en la semana — TODAS las líneas)
     const todasNoImpo = jobs.filter(j => (j.tipoCompra ?? "") !== "Importación");
     const programadasSemana = todasNoImpo.filter(j => {
-      const fecha = j.fechaCompromiso || j.fechaEntregaContractual;
+      const fecha = j.fechaEntregaContractual || j.fechaCompromiso;
       if (!fecha) return false;
       const d = new Date(fecha);
+      d.setHours(0, 0, 0, 0);
       return d >= hace7 && d <= today;
     });
-    const cumplidasSemana = programadasSemana.filter(j => {
+    const cumplidasSemana = programadasSemana.filter(j => norm(j.estadoEntrega) === "entregado");
+    const parcialesSemana = programadasSemana.filter(j => norm(j.estadoEntrega).includes("parcial"));
+    const pendientesSemana = programadasSemana.filter(j => {
       const bf = norm(j.estadoEntrega);
-      return bf === "entregado";
+      return bf === "sin entrega" || bf === "sin entregar" || bf === "pendiente";
     });
     const totalProgramadas = programadasSemana.length;
     const totalCumplidas = cumplidasSemana.length;
+    const totalParciales = parcialesSemana.length;
+    const totalPendientesSem = pendientesSemana.length;
 
     // 4. Alertas tempranas emitidas (líneas con fecha seguimiento en la semana = contactos antes de entrega)
     const alertasTempranas = activas.filter(j => {
@@ -97,7 +115,7 @@ function Reportes() {
     return {
       totalOCSeguimiento, totalLineasSeguimiento,
       pctCumplimientoANS, conSeguimiento,
-      totalProgramadas, totalCumplidas,
+      totalProgramadas, totalCumplidas, totalParciales, totalPendientesSem,
       alertasTempranas,
       backlogCount, backlogUsd, backlogOCs,
       totalRiesgosCriticos, usdRiesgo,
@@ -165,7 +183,11 @@ function Reportes() {
   const exportarSemanal = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const hace7 = new Date(today.getTime() - 7 * 86400000);
+    // 7 días hábiles hacia atrás
+    const FEST = new Set(["2025-01-01","2025-01-06","2025-03-24","2025-04-17","2025-04-18","2025-05-01","2025-06-02","2025-06-23","2025-06-30","2025-07-20","2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17","2025-12-08","2025-12-25","2026-01-01","2026-01-12","2026-03-23","2026-04-02","2026-04-03","2026-05-01","2026-05-18","2026-06-08","2026-06-15","2026-06-29","2026-07-20","2026-08-07","2026-08-17","2026-10-12","2026-11-02","2026-11-16","2026-12-08","2026-12-25"]);
+    let hace7 = new Date(today);
+    let _dh = 0;
+    while (_dh < 7) { hace7.setDate(hace7.getDate() - 1); const dy = hace7.getDay(); if (dy !== 0 && dy !== 6 && !FEST.has(hace7.toISOString().slice(0, 10))) _dh++; }
     const fechaGen = today.toLocaleDateString("es-CO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const periodo = `${hace7.toLocaleDateString("es-CO")} al ${today.toLocaleDateString("es-CO")}`;
 
@@ -191,9 +213,10 @@ function Reportes() {
 
     const todasNoImpo = jobs.filter(j => (j.tipoCompra ?? "") !== "Importación");
     const programadas = todasNoImpo.filter(j => {
-      const fecha = j.fechaCompromiso || j.fechaEntregaContractual;
+      const fecha = j.fechaEntregaContractual || j.fechaCompromiso;
       if (!fecha) return false;
       const d = new Date(fecha);
+      d.setHours(0, 0, 0, 0);
       return d >= hace7 && d <= today;
     });
     const cumplidas = programadas.filter(j => norm(j.estadoEntrega) === "entregado");
@@ -440,19 +463,35 @@ function Reportes() {
         {/* Detalle */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-muted/20 border border-border rounded-lg p-4">
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Entregas programadas vs cumplidas</h4>
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Cumplidas</span>
-                  <span>{semanal.totalProgramadas > 0 ? Math.round((semanal.totalCumplidas / semanal.totalProgramadas) * 100) : 0}%</span>
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Entregas programadas vs estado actual (F. Contractual últimos 7 días hábiles)</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Cumplidas</span>
+                    <span>{semanal.totalProgramadas > 0 ? Math.round((semanal.totalCumplidas / semanal.totalProgramadas) * 100) : 0}%</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-success rounded-full" style={{ width: `${semanal.totalProgramadas > 0 ? (semanal.totalCumplidas / semanal.totalProgramadas) * 100 : 0}%` }} />
+                  </div>
                 </div>
-                <div className="h-3 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-success rounded-full" style={{ width: `${semanal.totalProgramadas > 0 ? (semanal.totalCumplidas / semanal.totalProgramadas) * 100 : 0}%` }} />
+                <div className="text-right">
+                  <div className="text-xl font-bold text-foreground">{semanal.totalCumplidas}/{semanal.totalProgramadas}</div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-xl font-bold text-foreground">{semanal.totalCumplidas}/{semanal.totalProgramadas}</div>
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-success">{semanal.totalCumplidas}</div>
+                  <div className="text-[10px] text-muted-foreground">Entregadas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-info">{semanal.totalParciales}</div>
+                  <div className="text-[10px] text-muted-foreground">Parciales</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-warning">{semanal.totalPendientesSem}</div>
+                  <div className="text-[10px] text-muted-foreground">Sin entrega</div>
+                </div>
               </div>
             </div>
           </div>
