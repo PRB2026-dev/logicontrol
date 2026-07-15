@@ -27,14 +27,14 @@ function Reportes() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Calcular fecha de hace 7 días HÁBILES (sin sáb, dom, festivos)
+    // Últimos 5 días hábiles (lun-vie, sin festivos) = 1 semana laboral
     const FESTIVOS_SET = new Set([
       "2025-01-01","2025-01-06","2025-03-24","2025-04-17","2025-04-18","2025-05-01","2025-06-02","2025-06-23","2025-06-30","2025-07-20","2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17","2025-12-08","2025-12-25",
       "2026-01-01","2026-01-12","2026-03-23","2026-04-02","2026-04-03","2026-05-01","2026-05-18","2026-06-08","2026-06-15","2026-06-29","2026-07-20","2026-08-07","2026-08-17","2026-10-12","2026-11-02","2026-11-16","2026-12-08","2026-12-25",
     ]);
     let hace7 = new Date(today);
     let diasHabilesContados = 0;
-    while (diasHabilesContados < 7) {
+    while (diasHabilesContados < 5) {
       hace7.setDate(hace7.getDate() - 1);
       const day = hace7.getDay();
       const iso = hace7.toISOString().slice(0, 10);
@@ -96,12 +96,18 @@ function Reportes() {
     const totalParciales = parcialesSemana.length;
     const totalPendientesSem = pendientesSemana.length;
 
-    // 4. Alertas tempranas emitidas (líneas con fecha seguimiento en la semana = contactos antes de entrega)
-    const alertasTempranas = activas.filter(j => {
-      if (!j.fechaSeguimiento) return false;
-      const d = new Date(j.fechaSeguimiento);
-      return d >= hace7 && d <= today && lineStatus(j) !== "Entregado";
-    }).length;
+    // 4. Alertas emitidas = promedio de seguimientos preventivos por línea
+    // Incluye: BH=[0,L], BF=[sin entrega, parcial, entregado], excluye borradas e importaciones
+    const lineasParaAlertas = jobs.filter(j => {
+      if ((j.tipoCompra ?? "") === "Importación") return false;
+      const bh = norm(j.estadoAdicional);
+      if (bh !== "0" && bh !== "l") return false;
+      const bf = norm(j.estadoEntrega);
+      if (bf === "borrado" || bf.startsWith("borr")) return false;
+      return true;
+    });
+    const totalSeguimientosPreventivos = lineasParaAlertas.reduce((s, j) => s + Number(j.cantSeguimientoPreventivo ?? 0), 0);
+    const alertasEmitidas = lineasParaAlertas.length > 0 ? Math.round((totalSeguimientosPreventivos / lineasParaAlertas.length) * 100) / 100 : 0;
 
     // 5. Backlog operativo (órdenes atrasadas sin entregar)
     const backlog = lineasSeguimiento.filter(j => jobDelayDays(j) > 0);
@@ -124,7 +130,7 @@ function Reportes() {
       totalOCSeguimiento, totalLineasSeguimiento,
       pctCumplimientoANS, conSeguimiento,
       totalProgramadas, totalCumplidas, totalParciales, totalPendientesSem,
-      alertasTempranas,
+      alertasEmitidas, totalSeguimientosPreventivos, totalLineasAlertas: lineasParaAlertas.length,
       backlogCount, backlogUsd, backlogOCs,
       totalRiesgosCriticos, usdRiesgo,
     };
@@ -236,11 +242,8 @@ function Reportes() {
     });
     const cumplidas = programadas.filter(j => norm(j.estadoEntrega) === "entregado");
 
-    const alertas = activas.filter(j => {
-      if (!j.fechaSeguimiento) return false;
-      const d = new Date(j.fechaSeguimiento);
-      return d >= hace7 && d <= today && lineStatus(j) !== "Entregado";
-    });
+    const totalSegPrev = lineasSeg.reduce((s, j) => s + Number(j.cantSeguimientoPreventivo ?? 0), 0);
+    const alertasPromedio = lineasSeg.length > 0 ? Math.round((totalSegPrev / lineasSeg.length) * 100) / 100 : 0;
 
     const backlog = lineasSeg.filter(j => jobDelayDays(j) > 0);
     const riesgos = lineasSeg.filter(j => {
@@ -271,7 +274,7 @@ function Reportes() {
       ["", "1. OC sujetas a seguimiento", ocsSeg.size, `${lineasSeg.length} líneas pendientes de entrega`],
       ["", "2. Cumplimiento ANS (14 días hábiles)", `${pctANS}%`, `${conSeg} líneas con gestión reciente de ${lineasSeg.length} total`],
       ["", "3. Entregas programadas vs cumplidas", `${cumplidas.length} / ${programadas.length}`, `${programadas.length > 0 ? Math.round((cumplidas.length / programadas.length) * 100) : 0}% de cumplimiento en entregas de la semana`],
-      ["", "4. Alertas tempranas emitidas", alertas.length, "Contactos de seguimiento realizados antes del vencimiento"],
+      ["", "4. Alertas emitidas (promedio)", alertasPromedio, `${totalSegPrev.toLocaleString()} seguimientos / ${lineasSeg.length} líneas`],
       ["", "5. Backlog operativo", backlog.length, `${new Set(backlog.map(j => j.oc).filter(Boolean)).size} OC atrasadas · USD ${Math.round(backlog.reduce((s, j) => s + valorPendienteUsdFn(j), 0)).toLocaleString()} en riesgo`],
       ["", "6. Riesgos críticos", riesgos.length, `USD ${Math.round(riesgos.reduce((s, j) => s + valorPendienteUsdFn(j), 0)).toLocaleString()} · Líneas >30 días sin gestión`],
       [],
@@ -470,7 +473,7 @@ function Reportes() {
           <KpiReport icon={FileText} label="OC en seguimiento" value={semanal.totalOCSeguimiento} sub={`${semanal.totalLineasSeguimiento} líneas`} color="#6366f1" />
           <KpiReport icon={CheckCircle2} label="Cumplimiento ANS" value={`${semanal.pctCumplimientoANS}%`} sub={`${semanal.conSeguimiento} gestionadas`} color={semanal.pctCumplimientoANS >= 80 ? "#10b981" : semanal.pctCumplimientoANS >= 60 ? "#f59e0b" : "#ef4444"} />
           <KpiReport icon={TrendingUp} label="Entregas programadas" value={semanal.totalProgramadas} sub={`${semanal.totalCumplidas} cumplidas`} color="#0ea5e9" />
-          <KpiReport icon={AlertTriangle} label="Alertas emitidas" value={semanal.alertasTempranas} sub="Contactos pre-entrega" color="#f59e0b" />
+          <KpiReport icon={AlertTriangle} label="Alertas emitidas (prom)" value={semanal.alertasEmitidas} sub={`${semanal.totalSeguimientosPreventivos.toLocaleString()} total / ${semanal.totalLineasAlertas} líneas`} color="#f59e0b" />
           <KpiReport icon={Clock} label="Backlog operativo" value={semanal.backlogCount} sub={`${semanal.backlogOCs} OC · ${fmtMoney(semanal.backlogUsd, "USD")}`} color="#ef4444" />
           <KpiReport icon={AlertTriangle} label="Riesgos críticos" value={semanal.totalRiesgosCriticos} sub={fmtMoney(semanal.usdRiesgo, "USD")} color="#991b1b" />
         </div>

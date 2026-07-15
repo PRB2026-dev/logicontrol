@@ -116,6 +116,7 @@ function rowToJob(r: Row): Job {
     categoriaSeguimiento: s(r.categoria_seguimiento) || s((r as any)["b y"]) || s((r as any).by) || null,
     fechaSeguimiento: d(r.fecha_seguimiento),
     diasIncumplimiento: n(r.dias_incumplimiento),
+    cantSeguimientoPreventivo: n(r.cant_seguimiento_preventivo),
     fechaNotificacionProveedor: d(r.fecha_notificacion_proveedor),
     compromisoProveedor: d(r.compromiso_proveedor),
     estadoEntrega: (() => {
@@ -227,6 +228,7 @@ function jobToRow(j: Partial<Job>): Row {
   set("categoria_seguimiento", j.categoriaSeguimiento);
   set("fecha_seguimiento", j.fechaSeguimiento || null);
   set("dias_incumplimiento", j.diasIncumplimiento ?? null);
+  set("cant_seguimiento_preventivo", j.cantSeguimientoPreventivo ?? null);
   set("fecha_notificacion_proveedor", j.fechaNotificacionProveedor || null);
   set("compromiso_proveedor", j.compromisoProveedor || null);
 

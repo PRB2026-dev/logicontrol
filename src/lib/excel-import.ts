@@ -94,6 +94,7 @@ const ALIASES: Partial<Record<AliasField, string[]>> = {
   categoriaSeguimiento: ["categorias seguimiento", "categorías seguimiento", "categoria seguimiento"],
   fechaSeguimiento: ["fecha actual de seguimiento", "fecha seguimiento"],
   diasIncumplimiento: ["dias de incumplimiento", "días de incumplimiento"],
+  cantSeguimientoPreventivo: ["cant seguimiento preventivo", "cant. seguimiento preventivo", "cantidad seguimiento preventivo"],
   fechaNotificacionProveedor: ["fecha de notificacion proveedor", "fecha de notificación proveedor"],
   compromisoProveedor: ["compromiso fecha de entrega del proveedor"],
   // Importación
@@ -284,6 +285,7 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
   if (map.detalleStatus === undefined && headers.length > 77) map.detalleStatus = 77;
   if (map.statusGeneral === undefined && headers.length > 78) map.statusGeneral = 78;
   if (map.fechaSeguimiento === undefined && headers.length > COL.CE) map.fechaSeguimiento = COL.CE;
+  if (map.cantSeguimientoPreventivo === undefined && headers.length > 83) map.cantSeguimientoPreventivo = 83;
   if (map.anio === undefined && headers.length > COL.AL) map.anio = COL.AL;
   // Si anio fue mapeado por alias pero apunta a una columna lejana (CO=92), forzar AL
   if (map.anio !== undefined && map.anio > 50 && headers.length > COL.AL) map.anio = COL.AL;
@@ -476,6 +478,7 @@ export function parseRowsToJobs(rows: unknown[][]): ParseResult {
       categoriaSeguimiento: String(get("categoriaSeguimiento") ?? "").trim() || null,
       fechaSeguimiento: parseDate(get("fechaSeguimiento")),
       diasIncumplimiento: get("diasIncumplimiento") !== undefined ? parseNum(get("diasIncumplimiento")) : null,
+      cantSeguimientoPreventivo: get("cantSeguimientoPreventivo") !== undefined ? parseNum(get("cantSeguimientoPreventivo")) : null,
       fechaNotificacionProveedor: parseDate(get("fechaNotificacionProveedor")),
       compromisoProveedor: parseDate(get("compromisoProveedor")),
       // LLAVE: del archivo, o computada como OC + Posición

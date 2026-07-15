@@ -102,6 +102,7 @@ export interface Job {
   detalleStatus?: string | null;
   categoriaSeguimiento?: string | null;
   fechaSeguimiento?: string | null;
+  cantSeguimientoPreventivo?: number | null;
   diasIncumplimiento?: number | null;
   fechaNotificacionProveedor?: string | null;
   compromisoProveedor?: string | null;
