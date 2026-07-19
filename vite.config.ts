@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Force the nitro deploy plugin to run and target Netlify. Without an explicit
+  // `nitro` option the Lovable config skips nitro entirely outside its own sandbox,
+  // so a Netlify deploy only gets static client assets (no SSR server handler and
+  // no index.html) and fails to publish. The `netlify` preset emits the static site
+  // plus a Netlify Function at `.netlify/functions-internal/server` to serve SSR.
+  nitro: { preset: "netlify" },
 });
