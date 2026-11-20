@@ -1,0 +1,7 @@
+[build]
+  command = "bun run build"
+  publish = "dist/client"
+
+[dev]
+  command = "bun run dev"
+  targetPort = 8080
