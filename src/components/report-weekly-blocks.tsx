@@ -159,28 +159,28 @@ export function ReportWeeklyBlocks({ result: r }: { result: WeeklyBlocksResult }
           <>
             <KpiCard
               icon={<Dot color="#10b981" />}
-              label="Anticipadas (BV − AR < 0)"
+              label="Anticipadas"
               value={b.anticipadas.lineas.toLocaleString()}
               sub={`${b.anticipadas.ocs} OC · ${fmtMoney(b.anticipadas.usd, "USD")}`}
               color="#10b981"
             />
             <KpiCard
               icon={<Dot color="#3b82f6" />}
-              label="En fecha (BV − AR = 0)"
+              label="En fecha"
               value={b.enFecha.lineas.toLocaleString()}
               sub={`${b.enFecha.ocs} OC · ${fmtMoney(b.enFecha.usd, "USD")}`}
               color="#3b82f6"
             />
             <KpiCard
               icon={<Dot color="#ef4444" />}
-              label="Atrasadas (BV − AR > 0)"
+              label="Atrasadas"
               value={b.atrasadas.lineas.toLocaleString()}
               sub={`${b.atrasadas.ocs} OC · ${fmtMoney(b.atrasadas.usd, "USD")}`}
               color="#ef4444"
             />
             <KpiCard
               icon={<Dot color="#6b7280" />}
-              label="Sin fecha real (sin BV)"
+              label="Sin fecha real"
               value={b.sinFechaReal.toLocaleString()}
               sub={`${b.cambiaron} cambian clasif. A→B`}
               color="#6b7280"
@@ -197,14 +197,14 @@ export function ReportWeeklyBlocks({ result: r }: { result: WeeklyBlocksResult }
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard
             icon={<Dot color="#10b981" />}
-            label="Activas a tiempo (BK ≤ 0)"
+            label="Activas a tiempo"
             value={act.aTiempo.lineas.toLocaleString()}
             sub={`${act.aTiempo.ocs} OC`}
             color="#10b981"
           />
           <KpiCard
             icon={<Dot color="#ef4444" />}
-            label="Activas atrasadas (BK > 0)"
+            label="Activas atrasadas"
             value={act.atrasada.lineas.toLocaleString()}
             sub={`${act.atrasada.ocs} OC`}
             color="#ef4444"
@@ -218,7 +218,7 @@ export function ReportWeeklyBlocks({ result: r }: { result: WeeklyBlocksResult }
           />
           <KpiCard
             icon={<Dot color="#6b7280" />}
-            label="OC únicas (unión)"
+            label="OC únicas"
             value={act.unionOcs.toLocaleString()}
             sub={`intersección ${act.intersecOcs}`}
             color="#6b7280"
