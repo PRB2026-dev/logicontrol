@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useJobsStore } from "@/lib/jobs-store";
@@ -155,6 +155,23 @@ function DashboardGerencial() {
   const [fCategoria, setFCategoria] = useState("");
   const [fEquipo, setFEquipo] = useState("");
   const [fLiberacion, setFLiberacion] = useState<string[]>([]);
+
+  const navigate = useNavigate();
+  // Al hacer clic en "Pendientes" lleva a Operaciones mostrando las líneas
+  // pendientes (Sin entrega + Entregado Parcial), conservando los filtros con
+  // equivalente en Operaciones y el alcance nacional del dashboard.
+  const irAPendientes = () => {
+    navigate({
+      to: "/operaciones",
+      search: {
+        pendientes: "1",
+        nacional: "1",
+        gerencia: fGerencia || undefined,
+        campo: fCampo || undefined,
+        proveedor: fProveedor || undefined,
+      },
+    });
+  };
 
   const opt = (vals: (string | number | null | undefined)[]) =>
     Array.from(new Set(vals.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
@@ -841,7 +858,7 @@ function DashboardGerencial() {
             sub={`${pct(ocKpis.retraso, ocKpis.totalOC)}%`} />
           <Kpi icon={PackageMinus} label="Pendientes"          value={ocKpis.pendientes} tint="warning"
             sub={`${pct(ocKpis.pendientes, ocKpis.totalOC)}%`}
-            onClick={() => setOrClear(["Sin entrega", "Entregado Parcial"])} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
+            onClick={irAPendientes} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
         </div>
       </Section>
 
@@ -858,7 +875,7 @@ function DashboardGerencial() {
             sub={`${pct(lineasTarde, lineasTotal)}%`} />
           <Kpi icon={PackageMinus}  label="Pendientes"         value={lineasPendientes.toLocaleString()} tint="warning"
             sub={`${pct(lineasPendientes, lineasTotal)}%`}
-            onClick={() => setOrClear(["Sin entrega", "Entregado Parcial"])} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
+            onClick={irAPendientes} active={isEstadoActive(["Sin entrega", "Entregado Parcial"])} />
         </div>
       </Section>
 

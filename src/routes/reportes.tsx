@@ -8,6 +8,8 @@ import { slaStatus, jobDelayDays, lineStatus, fmtMoney, valorCompradoUsd, valorP
 import type { Job } from "@/lib/jobs-data";
 import { useMemo } from "react";
 import * as XLSX from "xlsx-js-style";
+import { ReportWeeklyBlocks } from "@/components/report-weekly-blocks";
+import { computeWeeklyBlocks, clasifALabel, clasifBLabel, diasBvMenosAr } from "@/lib/report-weekly-blocks";
 
 export const Route = createFileRoute("/reportes")({
   component: () => (
@@ -21,6 +23,7 @@ const norm = (v: unknown) => String(v ?? "").toLowerCase().trim();
 
 function Reportes() {
   const jobs = useJobsStore((s) => s.jobs);
+  const weeklyBlocks = useMemo(() => computeWeeklyBlocks(jobs), [jobs]);
 
   // ─── Reporte Semanal: métricas ──────────────────────────────────────────────
   const semanal = useMemo(() => {
@@ -335,16 +338,22 @@ function Reportes() {
       ["", "ENTREGAS PROGRAMADAS EN LA SEMANA"],
       ["", `${programadas.length} programadas · ${cumplidas.length} cumplidas · ${programadas.length > 0 ? Math.round((cumplidas.length / programadas.length) * 100) : 0}% cumplimiento`],
       [],
-      ["", "N°", "OC", "POS", "PROVEEDOR", "MATERIAL", "F. COMPROMISO", "ESTADO", "QTY", "ENTREGADA", "CUMPLIDA"],
+      ["", "N°", "OC", "POS", "PROVEEDOR", "MATERIAL", "F. COMPROMISO", "ESTADO", "QTY", "ENTREGADA", "CUMPLIDA", "R", "BY", "AR", "AK", "BV", "DÍAS BK", "DÍAS BV−AR", "CLASIF A", "CLASIF B"],
     ];
     programadas.forEach((j, i) => {
+      const dBvAr = diasBvMenosAr(j);
       h4.push(["", i + 1, j.oc ?? "", j.posicion ?? "", j.proveedor ?? "", (j.material ?? "").slice(0, 40),
         j.fechaCompromiso ?? j.fechaEntregaContractual ?? "",
         lineStatus(j), Number(j.qty ?? 0), Number(j.qtyEntregada ?? 0),
-        lineStatus(j) === "Entregado" ? "SÍ ✓" : "NO ✗"]);
+        lineStatus(j) === "Entregado" ? "SÍ ✓" : "NO ✗",
+        j.responsable ?? "", j.categoriaSeguimiento ?? "",
+        j.fechaEntregaContractual ?? "", j.fechaAceptacion ?? "", j.fechaRecepcion ?? "",
+        Number(j.diasIncumplimiento ?? 0),
+        dBvAr === null ? "—" : dBvAr,
+        clasifALabel(j), clasifBLabel(j)]);
     });
     const ws4 = XLSX.utils.aoa_to_sheet(h4);
-    ws4["!cols"] = [{ wch: 3 }, { wch: 4 }, { wch: 14 }, { wch: 5 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 8 }];
+    ws4["!cols"] = [{ wch: 3 }, { wch: 4 }, { wch: 14 }, { wch: 5 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 9 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws4, "Entregas Programadas");
 
     XLSX.writeFile(wb, `Reporte_Semanal_LogiControl_${today.toISOString().slice(0, 10)}.xlsx`);
@@ -478,6 +487,12 @@ function Reportes() {
           <KpiReport icon={AlertTriangle} label="Riesgos críticos" value={semanal.totalRiesgosCriticos} sub={fmtMoney(semanal.usdRiesgo, "USD")} color="#991b1b" />
         </div>
 
+        {/* Notas: distinción entre Cumplimiento ANS y Cumplidas */}
+        <div className="text-[11px] text-muted-foreground space-y-1 border-l-2 border-border pl-3">
+          <div><span className="font-semibold text-foreground">Cumplimiento ANS:</span> % de líneas pendientes con un registro de seguimiento (fecha de seguimiento) en los últimos 14 días hábiles. Mide la <em>frescura de la gestión</em>.</div>
+          <div><span className="font-semibold text-foreground">Cumplidas:</span> % de las entregas programadas esta semana (por fecha contractual) cuyo estado es ENTREGADO. Mide el <em>cumplimiento de entrega de la semana</em>. No es comparable con el ANS.</div>
+        </div>
+
         {/* Detalle */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-muted/20 border border-border rounded-lg p-4">
@@ -522,6 +537,10 @@ function Reportes() {
                 <span className="text-sm font-bold text-destructive">{semanal.backlogCount}</span>
               </div>
               <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Líneas activas a tiempo <span className="text-[10px] text-muted-foreground/70">(base deduplicada)</span></span>
+                <span className="text-sm font-bold text-success">{weeklyBlocks.activas.aTiempo.lineas}</span>
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">USD en riesgo (backlog)</span>
                 <span className="text-sm font-bold text-warning">{fmtMoney(semanal.backlogUsd, "USD")}</span>
               </div>
@@ -533,6 +552,9 @@ function Reportes() {
           </div>
         </div>
       </div>
+
+      {/* ═══ CUMPLIMIENTO DE ENTREGAS — BLOQUES NUEVOS ═══ */}
+      <ReportWeeklyBlocks result={weeklyBlocks} />
 
       {/* ═══ REPORTE >30 DÍAS HÁBILES ═══ */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-5">

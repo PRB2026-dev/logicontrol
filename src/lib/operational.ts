@@ -289,6 +289,38 @@ export function lineStatus(job: Job): LineStatus {
   return "Pendiente";
 }
 
+/** Estado de entrega (columna BF del Excel / DATA FINAL).
+ *  Clasificación oficial de 4 valores, basada EXCLUSIVAMENTE en `estadoEntrega`.
+ *  Es la misma lógica que usa el Dashboard Gerencial, centralizada aquí para
+ *  que Operaciones y otros módulos la reutilicen sin duplicar código. */
+export type EstadoEntrega = "Entregado" | "Entregado Parcial" | "Sin entrega" | "Borrado";
+export function estadoOf(j: Job): EstadoEntrega {
+  const s = String(j.estadoEntrega ?? "").toLowerCase().trim();
+  if (s === "borrado") return "Borrado";
+  if (s === "entrega parcial") return "Entregado Parcial";
+  if (s === "entregado") return "Entregado";
+  if (s === "sin entrega") return "Sin entrega";
+  // Variantes / fallbacks
+  if (s.startsWith("borr") || s === "baja" || s === "anulado" || s === "cancelado" || s === "eliminado") return "Borrado";
+  if (s.includes("parcial")) return "Entregado Parcial";
+  if (s.includes("entregado") || s === "delivered" || s === "completo" || s === "completado") return "Entregado";
+  if (s === "sin entregar" || s === "pendiente" || s === "no entregado") return "Sin entrega";
+  if (!s) return "Sin entrega";
+  return "Sin entrega";
+}
+
+/** Estado de liberación (columna BH del Excel / DATA FINAL).
+ *  "0" = Activa, "L" = Liberada, "B" = Bloqueada/Borrada.
+ *  Mismas etiquetas que usa el Dashboard Gerencial para mantener paridad. */
+export type LiberacionBH = "0 - Activas" | "L - Liberadas" | "B - Bloqueadas" | "Sin liberación";
+export function liberacionOf(j: Job): LiberacionBH {
+  const bh = String(j.estadoAdicional ?? "").toLowerCase().trim();
+  if (bh === "0") return "0 - Activas";
+  if (bh === "l") return "L - Liberadas";
+  if (bh === "b") return "B - Bloqueadas";
+  return "Sin liberación";
+}
+
 /** Rangos oficiales Informe de Incumplimiento. */
 export type DelayRange =
   | "A tiempo / Anticipadas"

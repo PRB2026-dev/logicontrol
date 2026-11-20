@@ -18,7 +18,7 @@ import {
   jobDelayDays,
   deriveTipoCompra,
 } from "@/lib/operational";
-import { jobLlave, jobMoneda, fmtMoney, valorPendienteUsdFn, valorPendienteCopFn, valorCompradoUsd } from "@/lib/operational";
+import { jobLlave, jobMoneda, fmtMoney, valorPendienteUsdFn, valorPendienteCopFn, valorCompradoUsd, estadoOf, type EstadoEntrega, liberacionOf, type LiberacionBH } from "@/lib/operational";
 import { useMemo, useState, Fragment } from "react";
 import {
   Download, Plus, Search, ChevronRight, Pencil, Trash2,
@@ -45,7 +45,14 @@ import {
   type ColumnDef, type ColumnFiltersState, type SortingState, type ExpandedState, type VisibilityState,
 } from "@tanstack/react-table";
 
-const searchSchema = z.object({ q: z.string().optional() });
+const searchSchema = z.object({
+  q: z.string().optional(),
+  pendientes: z.string().optional(),
+  nacional: z.string().optional(),
+  gerencia: z.string().optional(),
+  campo: z.string().optional(),
+  proveedor: z.string().optional(),
+});
 
 export const Route = createFileRoute("/operaciones")({
   validateSearch: (s) => searchSchema.parse(s),
@@ -62,15 +69,21 @@ const allStatuses: JobStatus[] = [
 const allPriorities: Priority[] = ["Baja", "Media", "Alta", "Crítica"];
 const allLineStatuses = ["Entregado", "Parcial", "Pendiente", "Vencido", "Próximo a Vencer"] as const;
 const allTipoCompra = ["Nacional", "Importación"] as const;
+const allEstadosEntrega: EstadoEntrega[] = ["Borrado", "Entregado Parcial", "Entregado", "Sin entrega"];
+const allLiberaciones: LiberacionBH[] = ["0 - Activas", "L - Liberadas", "B - Bloqueadas", "Sin liberación"];
 
 function Operaciones() {
   const jobs = useJobsStore((s) => s.jobs);
   const deleteJob = useJobsStore((s) => s.deleteJob);
-  const { q: qParam } = Route.useSearch();
+  const { q: qParam, pendientes: pendientesParam, nacional: nacionalParam, gerencia: gerenciaParam, campo: campoParam, proveedor: proveedorParam } = Route.useSearch();
 
   const [globalFilter, setGlobalFilter] = useState(qParam ?? "");
   const [sorting, setSorting] = useState<SortingState>([{ id: "urgency", desc: true }]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() =>
+    pendientesParam === "1"
+      ? [{ id: "estadoEntrega", value: ["Sin entrega", "Entregado Parcial"] }]
+      : []
+  );
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     codigoSap: false,
     incoterms: false,
@@ -85,10 +98,10 @@ function Operaciones() {
   const [toDelete, setToDelete] = useState<Job | null>(null);
 
   // Filtros adicionales
-  const [fGerencia, setFGerencia] = useState("");
-  const [fCampo, setFCampo] = useState("");
-  const [fTipoCompra, setFTipoCompra] = useState("");
-  const [fProveedor, setFProveedor] = useState("");
+  const [fGerencia, setFGerencia] = useState(gerenciaParam ?? "");
+  const [fCampo, setFCampo] = useState(campoParam ?? "");
+  const [fTipoCompra, setFTipoCompra] = useState(nacionalParam === "1" ? "Nacional" : "");
+  const [fProveedor, setFProveedor] = useState(proveedorParam ?? "");
 
   // Opciones de filtro dinámicas
   const gerencias = useMemo(() => [...new Set(jobs.map(j => (j.gerencia ?? "").trim()).filter(Boolean))].sort(), [jobs]);
@@ -229,6 +242,34 @@ function Operaciones() {
           return <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${c}`}>{ls}</span>;
         },
         filterFn: (row, _id, value: string[]) => !value?.length || value.includes(lineStatus(row.original)),
+      },
+      {
+        id: "estadoEntrega",
+        header: "Estado Entrega",
+        accessorFn: (j) => estadoOf(j),
+        cell: ({ row }) => {
+          const e = estadoOf(row.original);
+          const c = e === "Entregado" ? "bg-success/15 text-success" :
+            e === "Entregado Parcial" ? "bg-info/15 text-info" :
+            e === "Borrado" ? "bg-muted text-muted-foreground border border-border" :
+            "bg-warning/15 text-warning";
+          return <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${c}`}>{e}</span>;
+        },
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(estadoOf(row.original)),
+      },
+      {
+        id: "liberacion",
+        header: "Liberación",
+        accessorFn: (j) => liberacionOf(j),
+        cell: ({ row }) => {
+          const l = liberacionOf(row.original);
+          const c = l === "0 - Activas" ? "bg-success/15 text-success" :
+            l === "L - Liberadas" ? "bg-info/15 text-info" :
+            l === "B - Bloqueadas" ? "bg-destructive/15 text-destructive" :
+            "bg-muted text-muted-foreground border border-border";
+          return <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${c}`}>{l}</span>;
+        },
+        filterFn: (row, _id, value: string[]) => !value?.length || value.includes(liberacionOf(row.original)),
       },
       {
         id: "fechaCompromiso",
@@ -430,6 +471,8 @@ function Operaciones() {
   const statusFilter = (table.getColumn("status")?.getFilterValue() as string[]) ?? [];
   const priorityFilter = (table.getColumn("prioridad")?.getFilterValue() as string[]) ?? [];
   const lineStatusFilter = (table.getColumn("lineStatus")?.getFilterValue() as string[]) ?? [];
+  const estadoEntregaFilter = (table.getColumn("estadoEntrega")?.getFilterValue() as string[]) ?? [];
+  const liberacionFilter = (table.getColumn("liberacion")?.getFilterValue() as string[]) ?? [];
 
   const toggleArrayFilter = (colId: string, current: string[], value: string) => {
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
@@ -492,6 +535,10 @@ function Operaciones() {
             </div>
             <FilterDropdown label="Estado Línea" options={[...allLineStatuses]} selected={lineStatusFilter}
               onToggle={(v) => toggleArrayFilter("lineStatus", lineStatusFilter, v)} />
+            <FilterDropdown label="Estado Entrega" options={allEstadosEntrega} selected={estadoEntregaFilter}
+              onToggle={(v) => toggleArrayFilter("estadoEntrega", estadoEntregaFilter, v)} />
+            <FilterDropdown label="Liberación" options={allLiberaciones} selected={liberacionFilter}
+              onToggle={(v) => toggleArrayFilter("liberacion", liberacionFilter, v)} />
             <FilterDropdown label="Status" options={allStatuses} selected={statusFilter}
               onToggle={(v) => toggleArrayFilter("status", statusFilter, v)} />
             <FilterDropdown label="Prioridad" options={allPriorities} selected={priorityFilter}
